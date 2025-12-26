@@ -15,7 +15,7 @@ from ray.train.torch import TorchTrainer
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
-from loguru import logger
+import logging
 
 
 def train_func(config: Dict[str, Any]):
@@ -178,6 +178,7 @@ class RayTrainer:
             use_gpu: Whether to use GPU
             resources_per_worker: Resource allocation per worker
         """
+        self.logger = logging.getLogger(__name__)
         self.config = config
         self.num_workers = num_workers
         self.use_gpu = use_gpu
@@ -216,7 +217,7 @@ class RayTrainer:
         )
         
         result = trainer.fit()
-        logger.info(f"Training completed. Best SNR: {result.metrics.get('val_snr', 'N/A')}")
+        self.logger.info(f"Training completed. Best SNR: {result.metrics.get('val_snr', 'N/A')}")
         return result
     
     def tune(
@@ -294,7 +295,7 @@ class RayTrainer:
         
         # Log best result
         best_result = results.get_best_result(metric="val_snr", mode="max")
-        logger.info(f"Best trial config: {best_result.config}")
-        logger.info(f"Best trial SNR: {best_result.metrics.get('val_snr', 'N/A')}")
+        self.logger.info(f"Best trial config: {best_result.config}")
+        self.logger.info(f"Best trial SNR: {best_result.metrics.get('val_snr', 'N/A')}")
         
         return results

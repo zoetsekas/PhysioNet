@@ -10,7 +10,7 @@ from typing import Dict, Optional, List
 import numpy as np
 import torch
 import torch.nn as nn
-from loguru import logger
+import logging
 
 # Check if nnUNet is available
 try:
@@ -19,7 +19,7 @@ try:
     from nnunetv2.inference.predict_from_raw_data import nnUNetPredictor
     NNUNET_AVAILABLE = True
 except ImportError:
-    logger.warning("nnUNetv2 not installed. Using fallback UNet.")
+    logging.getLogger(__name__).warning("nnUNetv2 not installed. Using fallback UNet.")
     NNUNET_AVAILABLE = False
 
 
@@ -49,9 +49,10 @@ class nnUNetSegmenter(nn.Module):
             configuration: "2d" or "3d"
         """
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         
         if not NNUNET_AVAILABLE:
-            logger.error("nnUNetv2 not available. Cannot initialize.")
+            self.logger.error("nnUNetv2 not available. Cannot initialize.")
             raise ImportError("Please install: pip install nnunetv2")
         
         self.fold = fold
@@ -83,7 +84,7 @@ class nnUNetSegmenter(nn.Module):
         )
         
         self.trainer.initialize()
-        logger.info(f"nnU-Net trainer initialized for fold {self.fold}")
+        self.logger.info(f"nnU-Net trainer initialized for fold {self.fold}")
     
     def setup_inference(self, checkpoint_path: str):
         """Setup nnU-Net for inference.
@@ -104,7 +105,7 @@ class nnUNetSegmenter(nn.Module):
             checkpoint_name="checkpoint_final.pth",
         )
         
-        logger.info(f"nnU-Net predictor initialized from {checkpoint_path}")
+        self.logger.info(f"nnU-Net predictor initialized from {checkpoint_path}")
     
     def forward(
         self,
@@ -231,8 +232,8 @@ def get_segmenter(use_nnunet: bool = True, **kwargs) -> nn.Module:
         Segmenter model
     """
     if use_nnunet and NNUNET_AVAILABLE:
-        logger.info("Using nnU-Net segmenter")
+        logging.getLogger(__name__).info("Using nnU-Net segmenter")
         return nnUNetSegmenter(**kwargs)
     else:
-        logger.info("Using fallback U-Net segmenter")
+        logging.getLogger(__name__).info("Using fallback U-Net segmenter")
         return FallbackUNet(**kwargs)

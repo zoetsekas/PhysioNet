@@ -4,7 +4,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 import ray
 import mlflow
-from loguru import logger
+import logging
 
 from ecg_digitization.training import RayTrainer
 from ecg_digitization.utils import setup_logging
@@ -13,6 +13,7 @@ from ecg_digitization.utils import setup_logging
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     """Main entry point for Ray-based training."""
+    _logger = logging.getLogger(__name__)
     
     setup_logging(cfg.paths.log_dir)
     
@@ -23,7 +24,7 @@ def main(cfg: DictConfig):
         num_gpus=cfg.get("ray", {}).get("num_gpus", 1),
     )
     
-    logger.info(f"Ray initialized: {ray.cluster_resources()}")
+    _logger.info(f"Ray initialized: {ray.cluster_resources()}")
     
     # Setup MLflow
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
@@ -73,7 +74,7 @@ def main(cfg: DictConfig):
         mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
         
         if mode == "tune":
-            logger.info("Starting hyperparameter tuning...")
+            _logger.info("Starting hyperparameter tuning...")
             results = trainer.tune(
                 num_samples=cfg.get("tune", {}).get("num_samples", 20),
                 max_epochs=cfg.training.epochs,
@@ -85,7 +86,7 @@ def main(cfg: DictConfig):
             mlflow.log_metric("best_val_snr", best.metrics.get("val_snr", 0))
             
         else:
-            logger.info("Starting distributed training...")
+            _logger.info("Starting distributed training...")
             result = trainer.train()
             
             mlflow.log_metric("final_train_loss", result.metrics.get("train_loss", 0))
@@ -93,7 +94,7 @@ def main(cfg: DictConfig):
             mlflow.log_metric("final_val_snr", result.metrics.get("val_snr", 0))
     
     ray.shutdown()
-    logger.info("Training complete!")
+    _logger.info("Training complete!")
 
 
 if __name__ == "__main__":

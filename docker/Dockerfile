@@ -2,7 +2,7 @@
 # Base image with PyTorch, Ray, RAPIDS.ai, sklearn, scipy, pandas
 FROM trading_base:latest
 
-LABEL maintainer="your.email@example.com"
+LABEL maintainer="zoetsekas@outlook.com"
 LABEL description="ECG Image Digitization - PhysioNet Kaggle Competition"
 
 # Set environment variables
@@ -34,7 +34,7 @@ COPY pyproject.toml README.md ./
 
 # Install Python dependencies
 # Core image and signal processing libraries
-RUN pip install --no-cache-dir \
+RUN pip install \
     opencv-python>=4.8.0 \
     Pillow>=10.0.0 \
     albumentations>=1.3.0 \
@@ -43,13 +43,15 @@ RUN pip install --no-cache-dir \
     biosppy>=1.0.0
 
 # ML and model libraries
-RUN pip install --no-cache-dir \
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cu130 \
+    torchvision \
     transformers>=4.35.0 \
     timm>=0.9.0 \
     segmentation-models-pytorch>=0.3.0
 
 # Data handling and utilities
-RUN pip install --no-cache-dir \
+RUN pip install \
+    pandas>=2.2.0 \
     pyarrow>=14.0.0 \
     hydra-core>=1.3.0 \
     omegaconf>=2.3.0 \
@@ -57,20 +59,14 @@ RUN pip install --no-cache-dir \
     rich>=13.0.0
 
 # Experiment tracking
-RUN pip install --no-cache-dir \
+RUN pip install \
     wandb>=0.16.0 \
     mlflow>=2.9.0 \
-    optuna>=3.4.0
-
-# nnU-Net and additional scientific libraries
-RUN pip install --no-cache-dir \
+    optuna>=3.4.0 \
     nnunetv2>=2.2.1 \
     scikit-image>=0.21.0 \
     SimpleITK>=2.3.0 \
-    scipy>=1.11.0
-
-# Visualization
-RUN pip install --no-cache-dir \
+    scipy>=1.11.0 \
     matplotlib>=3.8.0 \
     seaborn>=0.13.0 \
     plotly>=5.18.0

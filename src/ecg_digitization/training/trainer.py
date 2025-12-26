@@ -3,12 +3,12 @@ ECG Digitization Trainer.
 """
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from loguru import logger
+import logging
 
 
 class ECGTrainer:
@@ -23,9 +23,10 @@ class ECGTrainer:
         criterion: nn.Module,
         scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         device: str = "cuda",
-        checkpoint_dir: str = "models/check points",
+        checkpoint_dir: str = "models/checkpoints",
         mlflow_tracker: Optional[Any] = None,
     ):
+        self.logger = logging.getLogger(__name__)
         self.model = model.to(device)
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -88,6 +89,9 @@ class ECGTrainer:
             loss = self.criterion(outputs["signals"], signals)
             total_loss += loss.item()
         
+        if len(self.val_loader) == 0:
+            return 0.0
+            
         avg_loss = total_loss / len(self.val_loader)
         self.val_losses.append(avg_loss)
         
@@ -109,7 +113,7 @@ class ECGTrainer:
             if self.scheduler:
                 self.scheduler.step(val_loss)
             
-            logger.info(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
+            self.logger.info(f"Epoch {epoch}: train_loss={train_loss:.4f}, val_loss={val_loss:.4f}")
             
             if val_loss < self.best_val_loss:
                 self.best_val_loss = val_loss
@@ -132,7 +136,7 @@ class ECGTrainer:
         loss_fig = create_loss_plot(self.train_losses, self.val_losses)
         self.mlflow_tracker.log_figure(loss_fig, "loss_curves.png")
         
-        logger.info("Logged training visualizations to MLflow")
+        self.logger.info("Logged training visualizations to MLflow")
     
     def _log_final_model(self):
         """Log final model to MLflow."""
@@ -140,9 +144,9 @@ class ECGTrainer:
             model_path = self.checkpoint_dir / "best_model.pt"
             if model_path.exists():
                 self.mlflow_tracker.log_artifact(str(model_path), "models")
-                logger.info("Logged best model to MLflow")
+                self.logger.info("Logged best model to MLflow")
         except Exception as e:
-            logger.warning(f"Failed to log model to MLflow: {e}")
+            self.logger.warning(f"Failed to log model to MLflow: {e}")
     
     def save_checkpoint(self, epoch: int, is_best: bool = False):
         state = {
@@ -157,4 +161,4 @@ class ECGTrainer:
         if is_best:
             best_path = self.checkpoint_dir / "best_model.pt"
             torch.save(state, best_path)
-            logger.info(f"Saved best model: {best_path}")
+            self.logger.info(f"Saved best model: {best_path}")

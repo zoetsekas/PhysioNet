@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, List
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-from loguru import logger
+import logging
 import torch
 import torch.nn as nn
 
@@ -21,7 +21,7 @@ try:
     MLFLOW_AVAILABLE = True
 except ImportError:
     MLFLOW_AVAILABLE = False
-    logger.warning("MLflow not available - tracking will be disabled")
+    logging.getLogger(__name__).warning("MLflow not available - tracking will be disabled")
 
 
 class NoOpMLflowTracker:
@@ -29,7 +29,8 @@ class NoOpMLflowTracker:
     
     def __init__(self, *args, **kwargs):
         """Initialize no-op tracker."""
-        logger.info("MLflow tracking disabled - using no-op tracker")
+        self.logger = logging.getLogger(__name__)
+        self.logger.info("MLflow tracking disabled - using no-op tracker")
         self.run = None
     
     def start_run(self, *args, **kwargs):
@@ -96,8 +97,9 @@ def create_mlflow_tracker(
     Returns:
         MLflowExperimentTracker if enabled and available, else NoOpMLflowTracker
     """
+    _logger = logging.getLogger(__name__)
     if not enabled:
-        logger.info("MLflow tracking disabled by configuration")
+        _logger.info("MLflow tracking disabled by configuration")
         return NoOpMLflowTracker(
             tracking_uri=tracking_uri,
             experiment_name=experiment_name,
@@ -106,7 +108,7 @@ def create_mlflow_tracker(
         )
     
     if not MLFLOW_AVAILABLE:
-        logger.warning("MLflow not available - falling back to no-op tracker")
+        _logger.warning("MLflow not available - falling back to no-op tracker")
         return NoOpMLflowTracker(
             tracking_uri=tracking_uri,
             experiment_name=experiment_name,
@@ -114,7 +116,7 @@ def create_mlflow_tracker(
             tags=tags,
         )
     
-    logger.info(f"MLflow tracking enabled: {tracking_uri}")
+    _logger.info(f"MLflow tracking enabled: {tracking_uri}")
     return MLflowExperimentTracker(
         tracking_uri=tracking_uri,
         experiment_name=experiment_name,
@@ -141,6 +143,7 @@ class MLflowExperimentTracker:
             run_name: Optional run name
             tags: Optional tags for the run
         """
+        self.logger = logging.getLogger(__name__)
         mlflow.set_tracking_uri(tracking_uri)
         
         # Set or create experiment
@@ -155,9 +158,9 @@ class MLflowExperimentTracker:
                 experiment_id = experiment.experiment_id
             
             mlflow.set_experiment(experiment_name=experiment_name)
-            logger.info(f"MLflow experiment: {experiment_name} (ID: {experiment_id})")
+            self.logger.info(f"MLflow experiment: {experiment_name} (ID: {experiment_id})")
         except Exception as e:
-            logger.warning(f"Failed to set experiment: {e}")
+            self.logger.warning(f"Failed to set experiment: {e}")
         
         self.experiment_name = experiment_name
         self.run_name = run_name
@@ -179,7 +182,7 @@ class MLflowExperimentTracker:
             tags=self.tags,
         )
         
-        logger.info(f"Started MLflow run: {self.run.info.run_id}")
+        self.logger.info(f"Started MLflow run: {self.run.info.run_id}")
         return self.run
     
     def log_config(self, config: Dict[str, Any]):
@@ -193,7 +196,7 @@ class MLflowExperimentTracker:
         
         # Log to MLflow
         mlflow.log_params(flat_params)
-        logger.info(f"Logged {len(flat_params)} configuration parameters")
+        self.logger.info(f"Logged {len(flat_params)} configuration parameters")
     
     def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
         """Log metrics.
@@ -238,7 +241,7 @@ class MLflowExperimentTracker:
             input_example=input_example,
             registered_model_name=registered_model_name,
         )
-        logger.info(f"Logged model to {artifact_path}")
+        self.logger.info(f"Logged model to {artifact_path}")
     
     def log_artifact(self, local_path: str, artifact_path: Optional[str] = None):
         """Log an artifact file.
@@ -305,7 +308,7 @@ class MLflowExperimentTracker:
         """
         if self.run:
             mlflow.end_run(status=status)
-            logger.info(f"Ended MLflow run with status: {status}")
+            self.logger.info(f"Ended MLflow run with status: {status}")
     
     def _flatten_dict(
         self,

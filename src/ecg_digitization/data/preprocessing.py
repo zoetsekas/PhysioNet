@@ -6,7 +6,6 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
-from loguru import logger
 
 
 def preprocess_ecg_image(

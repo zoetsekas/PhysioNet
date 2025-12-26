@@ -3,17 +3,19 @@
 import hydra
 from omegaconf import DictConfig
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader, random_split, Subset
 
 from ecg_digitization.data import ECGImageDataset, get_train_transforms, get_val_transforms, collate_fn
 from ecg_digitization.models import ECGDigitizer
 from ecg_digitization.training import ECGTrainer, CombinedLoss
+import logging
 from ecg_digitization.utils import setup_logging
 
 
-@hydra.main(config_path="../configs", config_name="config", version_base=None)
+@hydra.main(config_path="../../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     setup_logging(cfg.paths.log_dir)
+    logger = logging.getLogger(__name__)
     
     torch.manual_seed(cfg.project.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -52,20 +54,37 @@ def main(cfg: DictConfig):
         )
         val_transform = get_val_transforms(tuple(cfg.data.image_size))
         
-        full_dataset = ECGImageDataset(
+        # Create separate instances for train and val to handle different transforms
+        train_dataset = ECGImageDataset(
             cfg.paths.data_dir,
             transform=train_transform,
             is_train=True,
+            max_samples=cfg.data.get("max_samples", None)
         )
         
-        # Split into train/val
-        val_size = int(len(full_dataset) * cfg.training.val_split)
-        train_size = len(full_dataset) - val_size
-        train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
-        val_dataset.dataset.transform = val_transform
+        val_dataset = ECGImageDataset(
+            cfg.paths.data_dir,
+            transform=val_transform,
+            is_train=True,  # Still need labels for validation
+            max_samples=cfg.data.get("max_samples", None)
+        )
+        
+        # Split into train/val indices
+        num_samples = len(train_dataset)
+        val_size = int(num_samples * cfg.training.val_split)
+        if val_size == 0 and num_samples > 1:
+            val_size = 1
+            
+        indices = torch.randperm(num_samples).tolist()
+        
+        train_indices = indices[val_size:]
+        val_indices = indices[:val_size]
+        
+        train_subset = Subset(train_dataset, train_indices)
+        val_subset = Subset(val_dataset, val_indices)
         
         train_loader = DataLoader(
-            train_dataset,
+            train_subset,
             batch_size=cfg.data.batch_size,
             shuffle=True,
             num_workers=cfg.data.num_workers,
@@ -73,7 +92,7 @@ def main(cfg: DictConfig):
             collate_fn=collate_fn,
         )
         val_loader = DataLoader(
-            val_dataset,
+            val_subset,
             batch_size=cfg.data.batch_size,
             shuffle=False,
             num_workers=cfg.data.num_workers,

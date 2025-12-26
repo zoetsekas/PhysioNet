@@ -6,15 +6,14 @@ Shows how to compare baseline vs SignalSavants approaches.
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
-from loguru import logger
+import logging
 
 from ecg_digitization.pipeline_factory import create_pipeline_from_config
-
 
 @hydra.main(config_path="../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     """Main entry point demonstrating approach switching."""
-    
+    logger = logging.getLogger(__name__)
     logger.info("ECG Digitization - Configurable Approach Demo")
     logger.info("=" * 60)
     
