@@ -9,7 +9,7 @@ to align the time axis horizontally.
 from typing import Tuple, Optional
 import numpy as np
 import cv2
-from loguru import logger
+import logging
 
 
 def deskew_ecg_image(
@@ -44,7 +44,7 @@ def deskew_ecg_image(
     lines = cv2.HoughLines(edges, rho=1, theta=np.pi/180, threshold=hough_threshold)
     
     if lines is None or len(lines) == 0:
-        logger.warning("No lines detected via Hough Transform, returning original image")
+        logging.getLogger(__name__).warning("No lines detected via Hough Transform, returning original image")
         return image, 0.0
     
     # Extract angles from detected lines
@@ -62,13 +62,13 @@ def deskew_ecg_image(
             angles.append(angle_deg)
     
     if len(angles) == 0:
-        logger.warning("No valid angles found, returning original image")
+        logging.getLogger(__name__).warning("No valid angles found, returning original image")
         return image, 0.0
     
     # Find dominant angle (median is robust to outliers)
     dominant_angle = np.median(angles)
     
-    logger.info(f"Detected rotation: {dominant_angle:.2f} degrees from {len(angles)} grid lines")
+    logging.getLogger(__name__).info(f"Detected rotation: {dominant_angle:.2f} degrees from {len(angles)} grid lines")
     
     # Rotate image to correct alignment
     deskewed = rotate_image(image, -dominant_angle)
@@ -163,6 +163,7 @@ class HoughDeskewer:
             primary_method: Primary detection method ("hough" or "gradient")
             fallback_method: Fallback if primary fails
         """
+        self.logger = logging.getLogger(__name__)
         self.primary_method = primary_method
         self.fallback_method = fallback_method
         self.last_angle = 0.0
@@ -185,14 +186,14 @@ class HoughDeskewer:
                 angle = detect_grid_orientation_robust(image)
                 deskewed = rotate_image(image, -angle)
         except Exception as e:
-            logger.warning(f"Primary method failed: {e}, using fallback")
+            self.logger.warning(f"Primary method failed: {e}, using fallback")
             
             if self.fallback_method == "gradient":
                 angle = detect_grid_orientation_robust(image)
                 deskewed = rotate_image(image, -angle)
             else:
                 # Last resort: use previous angle
-                logger.warning("Fallback failed, using last known angle")
+                self.logger.warning("Fallback failed, using last known angle")
                 angle = self.last_angle
                 deskewed = rotate_image(image, -angle)
         

@@ -23,7 +23,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
-    shm_size: '8gb'
+    shm_size: '32gb'
     volumes:
       # Data volumes (external data)
       - ../data:/app/data
@@ -35,6 +35,8 @@ services:
       - ../configs:/app/configs
       # Logs
       - ../logs:/app/logs
+      # Reports
+      - ../reports:/app/reports
       # HuggingFace cache (persistent)
       - ecg_hf_cache:/app/.cache/huggingface
     environment:
@@ -49,6 +51,8 @@ services:
     stdin_open: true
     tty: true
     command: /bin/bash
+    networks:
+      - trading_network
 
   # Jupyter Lab service for EDA
   jupyter:
@@ -65,7 +69,7 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
-    shm_size: '8gb'
+    shm_size: '32gb'
     volumes:
       - ../data:/app/data
       - ../models:/app/models
@@ -87,3 +91,6 @@ volumes:
   ecg_hf_cache:
     driver: local
 
+networks:
+  trading_network:
+    external: true

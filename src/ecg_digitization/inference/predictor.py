@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from loguru import logger
+import logging
 
 
 class ECGPredictor:
@@ -24,6 +24,7 @@ class ECGPredictor:
         checkpoint_path: Optional[str] = None,
         device: str = "cuda",
     ):
+        self.logger = logging.getLogger(__name__)
         self.device = device
         self.model = model.to(device)
         
@@ -35,7 +36,7 @@ class ECGPredictor:
     def load_checkpoint(self, path: str):
         state = torch.load(path, map_location=self.device)
         self.model.load_state_dict(state["model"])
-        logger.info(f"Loaded checkpoint: {path}")
+        self.logger.info(f"Loaded checkpoint: {path}")
     
     @torch.no_grad()
     def predict(
@@ -94,5 +95,5 @@ class ECGPredictor:
         else:
             df.to_csv(output_path, index=False)
         
-        logger.info(f"Saved submission to {output_path}")
+        self.logger.info(f"Saved submission to {output_path}")
         return df

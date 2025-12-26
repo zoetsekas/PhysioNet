@@ -7,10 +7,10 @@ from typing import Dict, List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import timm
-from loguru import logger
+import logging
 
 
-def get_backbone(
+def create_timm_backbone(
     name: str = "resnet50",
     pretrained: bool = True,
     features_only: bool = True,
@@ -29,6 +29,7 @@ def get_backbone(
     Returns:
         Backbone network
     """
+    _logger = logging.getLogger(__name__)
     if out_indices is None:
         out_indices = [1, 2, 3, 4]  # Multi-scale features
     
@@ -40,17 +41,17 @@ def get_backbone(
         **kwargs,
     )
     
-    logger.info(f"Created backbone: {name} (pretrained={pretrained})")
+    _logger.info(f"Created backbone: {name} (pretrained={pretrained})")
     
     # Get feature info
     if hasattr(model, 'feature_info'):
         channels = model.feature_info.channels()
-        logger.info(f"Feature channels: {channels}")
+        _logger.info(f"Feature channels: {channels}")
     
     return model
 
 
-class HuggingFaceVisionBackbone(nn.Module):
+class HuggingFaceBackbone(nn.Module):
     """Wrapper for HuggingFace vision models.
     
     Supports models like:
@@ -73,6 +74,7 @@ class HuggingFaceVisionBackbone(nn.Module):
             return_features: Return intermediate features
         """
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         
         from transformers import AutoModel, AutoConfig
         
@@ -98,7 +100,7 @@ class HuggingFaceVisionBackbone(nn.Module):
         else:
             self.hidden_size = 768  # Default
             
-        logger.info(f"Created HuggingFace backbone: {model_name} (hidden_size={self.hidden_size})")
+        self.logger.info(f"Created HuggingFace backbone: {model_name} (hidden_size={self.hidden_size})")
     
     def forward(self, x: torch.Tensor) -> Union[torch.Tensor, List[torch.Tensor]]:
         """Forward pass.

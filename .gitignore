@@ -190,3 +190,5 @@ wandb/
 tmp/
 temp/
 *.tmp
+models/checkpoints/*
+data/*
