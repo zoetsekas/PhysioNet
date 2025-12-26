@@ -12,6 +12,7 @@ project:
   seed: 42
 
 mlflow:
+  enabled: true  # Set to false to disable MLflow (e.g., for Kaggle)
   tracking_uri: "http://localhost:5050"
   experiment_name: "ecg-digitization"
 

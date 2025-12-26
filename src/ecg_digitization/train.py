@@ -18,11 +18,12 @@ def main(cfg: DictConfig):
     torch.manual_seed(cfg.project.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # Initialize MLflow
-    from ecg_digitization.utils.mlflow_utils import MLflowExperimentTracker
+    # Initialize MLflow (conditionally based on config)
+    from ecg_digitization.utils.mlflow_utils import create_mlflow_tracker
     from ecg_digitization.pipeline_factory import create_pipeline_from_config
     
-    mlflow_tracker = MLflowExperimentTracker(
+    mlflow_tracker = create_mlflow_tracker(
+        enabled=cfg.mlflow.get("enabled", True),
         tracking_uri=cfg.mlflow.tracking_uri,
         experiment_name=cfg.mlflow.experiment_name,
         run_name=f"{cfg.approach.method}_{cfg.model.encoder_name}",

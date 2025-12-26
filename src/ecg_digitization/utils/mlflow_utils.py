@@ -2,6 +2,7 @@
 MLflow integration for experiment tracking, model logging, and visualization.
 
 Provides comprehensive tracking of ECG digitization experiments.
+Can be disabled for environments without MLflow (e.g., Kaggle).
 """
 
 from pathlib import Path
@@ -9,11 +10,117 @@ from typing import Dict, Any, Optional, List
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-import mlflow
-from mlflow.models import infer_signature
 from loguru import logger
 import torch
 import torch.nn as nn
+
+# Try to import MLflow, but make it optional
+try:
+    import mlflow
+    from mlflow.models import infer_signature
+    MLFLOW_AVAILABLE = True
+except ImportError:
+    MLFLOW_AVAILABLE = False
+    logger.warning("MLflow not available - tracking will be disabled")
+
+
+class NoOpMLflowTracker:
+    """No-op MLflow tracker for when MLflow is disabled or unavailable."""
+    
+    def __init__(self, *args, **kwargs):
+        """Initialize no-op tracker."""
+        logger.info("MLflow tracking disabled - using no-op tracker")
+        self.run = None
+    
+    def start_run(self, *args, **kwargs):
+        """No-op start run."""
+        return None
+    
+    def log_config(self, config: Dict[str, Any]):
+        """No-op log config."""
+        pass
+    
+    def log_metrics(self, metrics: Dict[str, float], step: Optional[int] = None):
+        """No-op log metrics."""
+        pass
+    
+    def log_metric(self, key: str, value: float, step: Optional[int] = None):
+        """No-op log metric."""
+        pass
+    
+    def log_model(self, *args, **kwargs):
+        """No-op log model."""
+        pass
+    
+    def log_artifact(self, *args, **kwargs):
+        """No-op log artifact."""
+        pass
+    
+    def log_artifacts(self, *args, **kwargs):
+        """No-op log artifacts."""
+        pass
+    
+    def log_figure(self, *args, **kwargs):
+        """No-op log figure."""
+        pass
+    
+    def log_dict(self, *args, **kwargs):
+        """No-op log dict."""
+        pass
+    
+    def set_tags(self, *args, **kwargs):
+        """No-op set tags."""
+        pass
+    
+    def end_run(self, *args, **kwargs):
+        """No-op end run."""
+        pass
+
+
+def create_mlflow_tracker(
+    enabled: bool = True,
+    tracking_uri: str = "http://localhost:5050",
+    experiment_name: str = "ecg-digitization",
+    run_name: Optional[str] = None,
+    tags: Optional[Dict[str, str]] = None,
+):
+    """Factory function to create appropriate MLflow tracker.
+    
+    Args:
+        enabled: Whether MLflow tracking is enabled
+        tracking_uri: MLflow server URI
+        experiment_name: Name of the experiment
+        run_name: Optional run name
+        tags: Optional tags for the run
+        
+    Returns:
+        MLflowExperimentTracker if enabled and available, else NoOpMLflowTracker
+    """
+    if not enabled:
+        logger.info("MLflow tracking disabled by configuration")
+        return NoOpMLflowTracker(
+            tracking_uri=tracking_uri,
+            experiment_name=experiment_name,
+            run_name=run_name,
+            tags=tags,
+        )
+    
+    if not MLFLOW_AVAILABLE:
+        logger.warning("MLflow not available - falling back to no-op tracker")
+        return NoOpMLflowTracker(
+            tracking_uri=tracking_uri,
+            experiment_name=experiment_name,
+            run_name=run_name,
+            tags=tags,
+        )
+    
+    logger.info(f"MLflow tracking enabled: {tracking_uri}")
+    return MLflowExperimentTracker(
+        tracking_uri=tracking_uri,
+        experiment_name=experiment_name,
+        run_name=run_name,
+        tags=tags,
+    )
 
 
 class MLflowExperimentTracker:
