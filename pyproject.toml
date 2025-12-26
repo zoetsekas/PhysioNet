@@ -13,10 +13,10 @@ name = "ecg-digitization"
 version = "0.1.0"
 description = "ECG Image Digitization - Extract time-series data from ECG paper printouts"
 readme = "README.md"
-license = {text = "BSD-3-Clause"}
+license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Zoe Tsekas", email = "zoetsekas@outlook.com"}
 ]
 keywords = [
     "ecg",

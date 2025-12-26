@@ -1,4 +1,7 @@
-# PhysioNet ECG Digitization - Enhanced with SOTA Research
+<div align="center">
+  <img src="docs/logo.png" alt="ECG Digitization Logo" width="200"/>
+  <h1>PhysioNet ECG Digitization - Enhanced with SOTA Research</h1>
+</div>
 
 This project implements state-of-the-art ECG image digitization based on the **SignalSavants winning approach** from PhysioNet 2024 Challenge (SNR: 12.15 dB).
 
@@ -56,6 +59,41 @@ make predict
 # Create submission
 make submit
 ```
+
+```
+
+---
+
+## 🏗️ Architecture in a Nutshell
+
+The ECG digitization system transforms paper ECG printouts into digital time-series signals through a **4-stage pipeline**:
+
+### Core Pipeline
+
+1. **📸 Preprocessing** - Hough Transform deskewing corrects rotation and aligns grid lines
+2. **🎯 Segmentation** - nnU-Net extracts signal pixels from background grid and noise
+3. **📊 Vectorization** - Column-wise centroid method converts 2D masks to 1D signals  
+4. **📏 Calibration** - Multi-method approach (pulse → grid → blind QRS) converts pixels to millivolts
+
+### Two Configurable Approaches
+
+| Component     | **Baseline**     | **SignalSavants** (Winner) |
+| ------------- | ---------------- | -------------------------- |
+| Preprocessing | Resize/Normalize | Hough Deskewing            |
+| Segmentation  | UNet++           | nnU-Net (self-configuring) |
+| Extraction    | Skeleton Tracing | Column-wise Centroid       |
+| Loss          | SNR + MSE        | Dice + Cross-Entropy       |
+| Expected SNR  | 15-18 dB         | 20-25 dB                   |
+
+### Technology Stack
+
+- **Deep Learning**: PyTorch, nnU-Net, timm, segmentation-models-pytorch
+- **Distributed**: Ray Train + Ray Tune with Optuna
+- **Computer Vision**: OpenCV (Hough), Albumentations, scikit-image
+- **Experiment Tracking**: MLflow
+- **Configuration**: Hydra + OmegaConf
+
+**📖 For detailed architecture, design decisions, and research references, see [Architecture Documentation](docs/architecture.md)**
 
 ---
 
@@ -263,7 +301,7 @@ tune:
 
 ## 📝 License
 
-BSD 3-Clause License (Kaggle Competition Requirement)
+MIT License - See [LICENSE](LICENSE) file for details
 
 ---
 
