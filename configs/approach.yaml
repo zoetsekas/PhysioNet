@@ -1,0 +1,48 @@
+# Pipeline approach configuration
+approach:
+  # Options: "baseline" or "signalsavants"
+  method: "signalsavants"
+  
+  # Preprocessing strategy
+  preprocessing:
+    # baseline: basic resize/normalize
+    # signalsavants: Hough Transform deskewing
+    deskew: true
+    deskew_method: "hough"  # "hough" or "gradient"
+  
+  # Segmentation model
+  segmentation:
+    # baseline: UNet++ (segmentation-models-pytorch)
+    # signalsavants: nnU-Net (self-configuring)
+    model: "nnunet"  # "nnunet" or "unet++"
+    use_fallback_on_error: true
+  
+  # Signal extraction method
+  extraction:
+    # baseline: skeleton tracing
+    # signalsavants: column-wise centroid
+    method: "column_wise"  # "column_wise" or "skeleton"
+    vectorization:
+      centroid_method: "centroid"  # "centroid", "median", "weighted"
+      interpolation: "linear"  # "linear", "cubic", "nearest"
+  
+  # Loss function
+  loss:
+    # baseline: SNR + MSE
+    # signalsavants: Dice + Cross-Entropy
+    type: "segmentation"  # "segmentation" or "regression"
+    segmentation:
+      dice_weight: 0.5
+      ce_weight: 0.5
+      use_focal: false
+    regression:
+      snr_weight: 1.0
+      mse_weight: 0.1
+  
+  # Calibration method
+  calibration:
+    # All methods enabled by default
+    use_calibration_pulse: true
+    use_grid_spacing: true
+    use_blind_qrs: true
+    fallback_chain: ["pulse", "grid", "blind"]

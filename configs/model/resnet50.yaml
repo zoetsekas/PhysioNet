@@ -1,0 +1,6 @@
+# ResNet50 backbone configuration
+encoder_name: resnet50
+encoder_weights: imagenet
+hidden_dim: 256
+num_leads: 12
+signal_length: 5000

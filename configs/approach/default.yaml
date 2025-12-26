@@ -1,0 +1,32 @@
+# Default approach (uses SignalSavants)
+method: "signalsavants"
+
+preprocessing:
+  deskew: true
+  deskew_method: "hough"
+
+segmentation:
+  model: "nnunet"
+  use_fallback_on_error: true
+
+extraction:
+  method: "column_wise"
+  vectorization:
+    centroid_method: "centroid"
+    interpolation: "linear"
+
+loss:
+  type: "segmentation"
+  segmentation:
+    dice_weight: 0.5
+    ce_weight: 0.5
+    use_focal: false
+  regression:
+    snr_weight: 1.0
+    mse_weight: 0.1
+
+calibration:
+  use_calibration_pulse: true
+  use_grid_spacing: true
+  use_blind_qrs: true
+  fallback_chain: ["pulse", "grid", "blind"]

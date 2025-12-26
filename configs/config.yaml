@@ -1,0 +1,32 @@
+# Main configuration for ECG Digitization
+defaults:
+  - approach: default
+  - model: resnet50
+  - data: default
+  - training: default
+  - _self_
+
+project:
+  name: ecg-digitization
+  version: "0.1.0"
+  seed: 42
+
+mlflow:
+  tracking_uri: "http://localhost:5050"
+  experiment_name: "ecg-digitization"
+
+paths:
+  data_dir: data
+  train_dir: ${paths.data_dir}/train
+  test_dir: ${paths.data_dir}/test
+  output_dir: models
+  checkpoint_dir: ${paths.output_dir}/checkpoints
+  submission_dir: ${paths.data_dir}/submissions
+  log_dir: logs
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

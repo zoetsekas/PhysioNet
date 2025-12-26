@@ -1,0 +1,12 @@
+# Ray configuration
+ray:
+  num_cpus: 8
+  num_gpus: 1
+  num_workers: 1  # Workers for distributed training
+  object_store_memory: 2000000000  # 2GB
+
+# Hyperparameter tuning configuration
+tune:
+  num_samples: 20  # Number of trials
+  grace_period: 5  # Min epochs before stopping
+  max_concurrent_trials: 2

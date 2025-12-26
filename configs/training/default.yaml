@@ -1,0 +1,11 @@
+# Default training configuration
+epochs: 50
+learning_rate: 1.0e-4
+weight_decay: 1.0e-5
+scheduler: cosine
+warmup_epochs: 2
+gradient_clip: 1.0
+mixed_precision: true
+snr_weight: 1.0
+mse_weight: 0.1
+val_split: 0.1

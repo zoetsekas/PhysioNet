@@ -1,0 +1,32 @@
+# Baseline approach (original implementation)
+method: "baseline"
+
+preprocessing:
+  deskew: false
+  deskew_method: null
+
+segmentation:
+  model: "unet++"
+  use_fallback_on_error: true
+
+extraction:
+  method: "skeleton"
+  vectorization:
+    centroid_method: null
+    interpolation: "linear"
+
+loss:
+  type: "regression"
+  segmentation:
+    dice_weight: 0.5
+    ce_weight: 0.5
+    use_focal: false
+  regression:
+    snr_weight: 1.0
+    mse_weight: 0.1
+
+calibration:
+  use_calibration_pulse: true
+  use_grid_spacing: true
+  use_blind_qrs: false
+  fallback_chain: ["grid", "pulse"]

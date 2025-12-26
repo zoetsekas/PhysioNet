@@ -1,0 +1,79 @@
+services:
+  ecg-digitization:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ecg-digitization:latest
+    container_name: ecg-digitization
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    shm_size: '8gb'
+    volumes:
+      # Data volumes (external data)
+      - ../data:/app/data
+      # Model checkpoints and exports
+      - ../models:/app/models
+      # Source code for development
+      - ../src:/app/src
+      # Configuration files
+      - ../configs:/app/configs
+      # Logs
+      - ../logs:/app/logs
+      # HuggingFace cache (persistent)
+      - ecg_hf_cache:/app/.cache/huggingface
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+      - WANDB_API_KEY=${WANDB_API_KEY:-}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://host.docker.internal:5050}
+    ports:
+      - "8888:8888" # Jupyter
+      - "5000:5000" # MLflow
+      - "6006:6006" # TensorBoard
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+  # Jupyter Lab service for EDA
+  jupyter:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: ecg-digitization:latest
+    container_name: ecg-jupyter
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    shm_size: '8gb'
+    volumes:
+      - ../data:/app/data
+      - ../models:/app/models
+      - ../src:/app/src
+      - ../configs:/app/configs
+      - ../notebooks:/app/notebooks
+      - ecg_hf_cache:/app/.cache/huggingface
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+    ports:
+      - "8889:8888"
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token=''
+
+  # Note: MLflow is available externally at http://localhost:5050
+  # Use host.docker.internal:5050 from within containers
+
+volumes:
+  ecg_hf_cache:
+    driver: local
+
