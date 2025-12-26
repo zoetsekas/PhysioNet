@@ -1,0 +1,12 @@
+# requirements_core.txt
+
+# Heavy ML Frameworks & CUDA
+--extra-index-url https://download.pytorch.org/whl/cu130
+--extra-index-url https://pypi.nvidia.com
+torch
+
+ray[data,train,tune,serve,rllib]
+xgboost
+lightgbm
+catboost
+PyPortfolioOpt

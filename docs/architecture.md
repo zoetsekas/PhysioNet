@@ -271,3 +271,91 @@ The configurable system enables:
 - **Comparative benchmarking** between approaches
 - **Gradual migration** from baseline to advanced methods
 - **Ablation studies** to measure impact of each component
+
+---
+
+## External References and Resources
+
+### PhysioNet Challenge 2024
+
+**Competition**:
+- [George B. Moody PhysioNet Challenge 2024](https://physionet.org/content/challenge-2024/)
+- [Kaggle Competition Page](https://www.kaggle.com/competitions/george-b-moody-physionet-challenge-2024)
+- [Challenge Overview Paper](https://physionet.org/content/challenge-2024/1.0.0/)
+
+### Winning Approaches
+
+**SignalSavants (1st Place)**:
+- Architecture based on their winning submission (SNR: 12.15 dB)
+- Used Hough Transform for deskewing + nnU-Net segmentation
+- Column-wise vectorization for signal extraction
+
+### Key Research Papers
+
+**nnU-Net Framework**:
+- Isensee et al., ["nnU-Net: a self-configuring method for deep learning-based biomedical image segmentation"](https://www.nature.com/articles/s41592-020-01008-z), Nature Methods, 2021
+- [GitHub Repository](https://github.com/MIC-DKFZ/nnUNet)
+
+**Semantic Segmentation**:
+- Ronneberger et al., ["U-Net: Convolutional Networks for Biomedical Image Segmentation"](https://arxiv.org/abs/1505.04597), MICCAI 2015
+- Zhou et al., ["UNet++: Redesigning Skip Connections"](https://arxiv.org/abs/1912.05074), Medical Image Analysis, 2020
+
+**ECG Analysis**:
+- Wagner et al., ["PTB-XL, a large publicly available electrocardiography dataset"](https://physionet.org/content/ptb-xl/), Scientific Data, 2020
+- [PTB-XL Dataset](https://physionet.org/content/ptb-xl/1.0.3/)
+
+**Loss Functions**:
+- Sudre et al., ["Generalised Dice overlap as a deep learning loss function"](https://arxiv.org/abs/1707.03237), DLMIA 2017
+- Lin et al., ["Focal Loss for Dense Object Detection"](https://arxiv.org/abs/1708.02002), ICCV 2017
+
+### Frameworks and Libraries
+
+**Deep Learning**:
+- [PyTorch](https://pytorch.org/) - Deep learning framework
+- [timm (PyTorch Image Models)](https://github.com/huggingface/pytorch-image-models) - Pre-trained vision models
+- [segmentation-models-pytorch](https://github.com/qubvel/segmentation_models.pytorch) - Segmentation architectures
+
+**Distributed Training**:
+- [Ray](https://docs.ray.io/) - Distributed computing framework
+- [Ray Train](https://docs.ray.io/en/latest/train/train.html) - Distributed training
+- [Ray Tune](https://docs.ray.io/en/latest/tune/index.html) - Hyperparameter tuning
+- [Optuna](https://optuna.org/) - Hyperparameter optimization
+
+**Computer Vision**:
+- [OpenCV](https://opencv.org/) - Computer vision library (Hough Transform, image processing)
+- [Albumentations](https://albumentations.ai/) - Image augmentation library
+- [scikit-image](https://scikit-image.org/) - Image processing in Python
+
+**Experiment Tracking**:
+- [MLflow](https://mlflow.org/) - ML lifecycle platform
+- [MLflow Tracking](https://mlflow.org/docs/latest/tracking.html) - Experiment tracking
+- [MLflow Models](https://mlflow.org/docs/latest/models.html) - Model registry
+
+**Configuration Management**:
+- [Hydra](https://hydra.cc/) - Configuration management framework
+- [OmegaConf](https://omegaconf.readthedocs.io/) - Configuration library
+
+**Signal Processing**:
+- [SciPy](https://scipy.org/) - Scientific computing (signal processing, interpolation)
+- [WFDB](https://github.com/MIT-LCP/wfdb-python) - Waveform database tools
+
+### Docker and Deployment
+
+- [Docker](https://www.docker.com/) - Containerization platform
+- [Docker Compose](https://docs.docker.com/compose/) - Multi-container orchestration
+- [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) - GPU support in Docker
+
+### Related Work
+
+**ECG Digitization**:
+- [ECG-Image-Kit](https://github.com/alphanumericslab/ecg-image-kit) - Synthetic ECG image generation toolkit
+- PhysioNet Database - Various ECG datasets and tools
+
+**Medical Image Segmentation**:
+- [Medical Segmentation Decathlon](http://medicaldecathlon.com/) - Benchmark for medical image segmentation
+- [MONAI](https://monai.io/) - Medical imaging framework
+
+---
+
+*For questions or contributions, please refer to the project README and documentation.*
+

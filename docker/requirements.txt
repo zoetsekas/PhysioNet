@@ -1,0 +1,38 @@
+# requirements.txt
+
+# Core & Frameworks
+python-dotenv
+SQLAlchemy
+psycopg[binary,pool]
+python-dateutil
+gymnasium
+jsonschema
+schema
+pandas-market-calendars
+apscheduler
+metaflow
+fastapi
+uvicorn[standard]
+mlflow
+
+# ML & Data Science
+optuna
+hydra-core
+hmmlearn
+
+# Utilities & Visualization
+gputil
+matplotlib
+tabulate
+seaborn
+tqdm
+yfinance
+ydata-profiling
+sweetviz
+tensorboard
+tensorboardX
+loguru
+typer
+mkdocs
+ruff
+

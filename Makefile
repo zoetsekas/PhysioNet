@@ -9,20 +9,21 @@ MODEL_DIR := models
 
 help:
 	@echo "Available commands:"
-	@echo "  make install       - Install package in production mode"
-	@echo "  make dev-install   - Install package with dev dependencies"
-	@echo "  make docker-build  - Build Docker image"
-	@echo "  make docker-run    - Run Docker container interactively"
-	@echo "  make docker-train  - Run training inside Docker"
-	@echo "  make docker-shell  - Open shell in Docker container"
-	@echo "  make train         - Run training pipeline"
-	@echo "  make predict       - Run inference pipeline"
-	@echo "  make submit        - Generate submission file"
-	@echo "  make test          - Run tests"
-	@echo "  make lint          - Run linting"
-	@echo "  make format        - Format code"
-	@echo "  make clean         - Clean build artifacts"
-	@echo "  make data-setup    - Setup data directories"
+	@echo "  make install            - Install package in production mode"
+	@echo "  make dev-install        - Install package with dev dependencies"
+	@echo "  make docker-build-base  - Build base ML Docker image (trading_base:latest)"
+	@echo "  make docker-build       - Build ECG application Docker image (requires base)"
+	@echo "  make docker-run         - Run Docker container interactively"
+	@echo "  make docker-train       - Run training inside Docker"
+	@echo "  make docker-shell       - Open shell in Docker container"
+	@echo "  make train              - Run training pipeline"
+	@echo "  make predict            - Run inference pipeline"
+	@echo "  make submit             - Generate submission file"
+	@echo "  make test               - Run tests"
+	@echo "  make lint               - Run linting"
+	@echo "  make format             - Format code"
+	@echo "  make clean              - Clean build artifacts"
+	@echo "  make data-setup         - Setup data directories"
 
 # Installation
 install:
@@ -32,7 +33,13 @@ dev-install:
 	pip install -e ".[dev,jupyter]"
 
 # Docker commands
+# Build the base ML image (must be built first)
+docker-build-base:
+	docker build -t $(DOCKER_BASE) -f docker/base_ml.Dockerfile .
+
+# Build the ECG application image (extends base image)
 docker-build:
+	@echo "Note: Ensure trading_base:latest exists (run 'make docker-build-base' first)"
 	docker build -t $(DOCKER_IMAGE) -f docker/Dockerfile .
 
 docker-run:

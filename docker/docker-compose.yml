@@ -1,3 +1,13 @@
+# Docker Compose Configuration for ECG Digitization
+# 
+# PREREQUISITES:
+# - Base image 'trading_base:latest' must be built first from docker/base_ml.Dockerfile
+#   Run: docker build -f docker/base_ml.Dockerfile -t trading_base:latest .
+#   Or:  make docker-build-base
+# 
+# This compose file builds 'ecg-digitization:latest' which extends trading_base:latest
+# with ECG-specific dependencies and application code.
+
 services:
   ecg-digitization:
     build:

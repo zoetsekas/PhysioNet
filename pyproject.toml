@@ -1,3 +1,9 @@
+# Docker Image Dependencies:
+# - Base Image: trading_base:latest (built from docker/base_ml.Dockerfile)
+#   Contains: PyTorch, Ray, RAPIDS.ai, sklearn, scipy, pandas, CUDA runtime
+# - Application Image: ecg-digitization:latest (built from docker/Dockerfile)
+#   Extends trading_base:latest with ECG-specific dependencies
+
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
