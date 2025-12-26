@@ -5,7 +5,7 @@ Main ECG Digitizer model combining all components.
 from typing import Dict, Optional
 import torch
 import torch.nn as nn
-from loguru import logger
+import logging
 
 from .encoder_decoder import ECGEncoderDecoder
 from .signal_head import SignalRegressionHead
@@ -16,7 +16,6 @@ class ECGDigitizer(nn.Module):
     
     Takes ECG images and outputs time-series signals for all 12 leads.
     """
-    
     def __init__(
         self,
         encoder_name: str = "resnet50",
@@ -26,6 +25,7 @@ class ECGDigitizer(nn.Module):
         hidden_dim: int = 256,
     ):
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         
         self.num_leads = num_leads
         self.signal_length = signal_length
@@ -44,7 +44,7 @@ class ECGDigitizer(nn.Module):
             hidden_dim=hidden_dim,
         )
         
-        logger.info(f"Created ECGDigitizer: {encoder_name}, {num_leads} leads")
+        self.logger.info(f"Created ECGDigitizer: {encoder_name}, {num_leads} leads")
     
     def forward(
         self,

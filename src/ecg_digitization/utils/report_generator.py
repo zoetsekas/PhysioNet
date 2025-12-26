@@ -10,7 +10,7 @@ from datetime import datetime
 import mlflow
 from mlflow.entities import Run
 import pandas as pd
-from loguru import logger
+import logging
 
 
 class ExperimentReportGenerator:
@@ -27,6 +27,7 @@ class ExperimentReportGenerator:
             tracking_uri: MLflow tracking URI
             reports_dir: Directory to save reports
         """
+        self.logger = logging.getLogger(__name__)
         self.tracking_uri = tracking_uri
         self.reports_dir = Path(reports_dir)
         self.reports_dir.mkdir(parents=True, exist_ok=True)
@@ -60,7 +61,7 @@ class ExperimentReportGenerator:
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report)
         
-        logger.info(f"Generated report: {report_path}")
+        self.logger.info(f"Generated report: {report_path}")
         return str(report_path)
     
     def generate_experiment_summary(
@@ -103,7 +104,7 @@ class ExperimentReportGenerator:
         with open(report_path, 'w', encoding='utf-8') as f:
             f.write(report)
         
-        logger.info(f"Generated experiment summary: {report_path}")
+        self.logger.info(f"Generated experiment summary: {report_path}")
         return str(report_path)
     
     def _create_report_markdown(

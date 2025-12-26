@@ -8,7 +8,7 @@ Simple and robust centroid-based extraction.
 from typing import Optional, Tuple
 import numpy as np
 from scipy import interpolate
-from loguru import logger
+import logging
 
 
 def vectorize_mask(
@@ -57,7 +57,7 @@ def vectorize_mask(
     gap_percent = 100 * num_gaps / len(signal_1d)
     
     if gap_percent > 10:
-        logger.warning(f"Signal has {gap_percent:.1f}% gaps ({num_gaps}/{len(signal_1d)})")
+        logging.getLogger(__name__).warning(f"Signal has {gap_percent:.1f}% gaps ({num_gaps}/{len(signal_1d)})")
     
     # Fill gaps via interpolation
     signal_1d = interpolate_gaps(signal_1d)
@@ -88,7 +88,7 @@ def interpolate_gaps(
     valid_values = signal[valid_mask]
     
     if len(valid_indices) == 0:
-        logger.error("Signal is entirely NaN!")
+        logging.getLogger(__name__).error("Signal is entirely NaN!")
         return np.zeros_like(signal)
     
     if len(valid_indices) == len(signal):
@@ -103,7 +103,7 @@ def interpolate_gaps(
         
         if gap_size > max_gap_size:
             # Large gap: use nearest neighbor
-            logger.warning(f"Large gap ({gap_size} pixels) at {gap_start}, using nearest")
+            logging.getLogger(__name__).warning(f"Large gap ({gap_size} pixels) at {gap_start}, using nearest")
             if gap_start > 0:
                 signal[gap_start:gap_end] = signal[gap_start - 1]
             elif gap_end < len(signal):

@@ -17,15 +17,6 @@ docker info
 **Expected**: Docker info displays successfully  
 **If fails**: Start Docker Desktop and wait for it to be ready
 
-### 2. Check MLflow Server is Running
-
-```powershell
-curl http://localhost:5050/health
-```
-
-**Expected**: Returns HTTP 200  
-**If fails**: Start MLflow server with `mlflow server --host 0.0.0.0 --port 5050`
-
 ## Training Steps
 
 ### 3. Build Docker Image (if needed)

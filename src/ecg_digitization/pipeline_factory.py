@@ -6,11 +6,11 @@ Enables A/B testing between baseline and SignalSavants methods.
 
 from typing import Dict, Any, Optional
 import torch.nn as nn
-from loguru import logger
+import logging
 from omegaconf import DictConfig
 
 from ecg_digitization.data import HoughDeskewer
-from ecg_digitization.models import get_segmenter, ECGEncoderDecoder
+from ecg_digitization.models import get_segmenter, ECGEncoderDecoder, ECGDigitizer
 from ecg_digitization.training import (
     SegmentationLoss,
     CombinedLoss,
@@ -28,9 +28,10 @@ class PipelineFactory:
         Args:
             config: Hydra configuration object
         """
+        self.logger = logging.getLogger(__name__)
         self.config = config
         self.approach = config.approach.method
-        logger.info(f"Initializing pipeline with approach: {self.approach}")
+        self.logger.info(f"Initializing pipeline with approach: {self.approach}")
     
     def create_preprocessor(self) -> Optional[HoughDeskewer]:
         """Create preprocessor based on configuration.
@@ -39,11 +40,11 @@ class PipelineFactory:
             Preprocessor instance or None if disabled
         """
         if not self.config.approach.preprocessing.deskew:
-            logger.info("Preprocessing: disabled (baseline mode)")
+            self.logger.info("Preprocessing: disabled (baseline mode)")
             return None
         
         method = self.config.approach.preprocessing.deskew_method
-        logger.info(f"Preprocessing: Hough deskewing (method={method})")
+        self.logger.info(f"Preprocessing: Hough deskewing (method={method})")
         
         return HoughDeskewer(
             primary_method=method if method == "hough" else "gradient",
@@ -63,7 +64,7 @@ class PipelineFactory:
         use_fallback = self.config.approach.segmentation.use_fallback_on_error
         
         if model_type == "nnunet":
-            logger.info("Segmentation: nnU-Net (SignalSavants)")
+            self.logger.info("Segmentation: nnU-Net (SignalSavants)")
             try:
                 return get_segmenter(
                     use_nnunet=True,
@@ -71,14 +72,23 @@ class PipelineFactory:
                 )
             except Exception as e:
                 if use_fallback:
-                    logger.warning(f"nnU-Net failed ({e}), falling back to UNet++")
+                    self.logger.warning(f"nnU-Net failed ({e}), falling back to UNet++")
                     return self._create_unet_plus_plus(**kwargs)
                 else:
                     raise
         
         elif model_type == "unet++":
-            logger.info("Segmentation: UNet++ (baseline)")
-            return self._create_unet_plus_plus(**kwargs)
+            self.logger.info("Segmentation: UNet++ (baseline)")
+            model = self._create_unet_plus_plus(**kwargs)
+            
+            # If regression loss is used, wrap in ECGDigitizer
+            if self.config.approach.loss.type == "regression":
+                self.logger.info("Wrapping in ECGDigitizer for regression training")
+                return ECGDigitizer(
+                    encoder_name=self.config.model.encoder_name,
+                    encoder_weights=self.config.model.encoder_weights,
+                )
+            return model
         
         else:
             raise ValueError(f"Unknown segmentation model: {model_type}")
@@ -107,7 +117,7 @@ class PipelineFactory:
             Extraction method: "column_wise" or "skeleton"
         """
         method = self.config.approach.extraction.method
-        logger.info(f"Signal extraction: {method}")
+        self.logger.info(f"Signal extraction: {method}")
         return method
     
     def get_vectorization_config(self) -> Dict[str, Any]:
@@ -130,7 +140,7 @@ class PipelineFactory:
         loss_type = self.config.approach.loss.type
         
         if loss_type == "segmentation":
-            logger.info("Loss: Segmentation (Dice + CE) - SignalSavants")
+            self.logger.info("Loss: Segmentation (Dice + CE) - SignalSavants")
             
             dice_weight = self.config.approach.loss.segmentation.dice_weight
             ce_weight = self.config.approach.loss.segmentation.ce_weight
@@ -143,7 +153,7 @@ class PipelineFactory:
             )
         
         elif loss_type == "regression":
-            logger.info("Loss: Regression (SNR + MSE) - baseline")
+            self.logger.info("Loss: Regression (SNR + MSE) - baseline")
             
             snr_weight = self.config.approach.loss.regression.snr_weight
             mse_weight = self.config.approach.loss.regression.mse_weight
@@ -171,15 +181,15 @@ class PipelineFactory:
     
     def print_pipeline_summary(self):
         """Print a summary of the configured pipeline."""
-        logger.info("=" * 60)
-        logger.info(f"Pipeline Approach: {self.approach.upper()}")
-        logger.info("=" * 60)
-        logger.info(f"Preprocessing: {'Hough Deskewing' if self.config.approach.preprocessing.deskew else 'Basic (resize/normalize)'}")
-        logger.info(f"Segmentation: {self.config.approach.segmentation.model.upper()}")
-        logger.info(f"Extraction: {self.config.approach.extraction.method}")
-        logger.info(f"Loss Function: {self.config.approach.loss.type}")
-        logger.info(f"Calibration Chain: {' → '.join(self.config.approach.calibration.fallback_chain)}")
-        logger.info("=" * 60)
+        self.logger.info("=" * 60)
+        self.logger.info(f"Pipeline Approach: {self.approach.upper()}")
+        self.logger.info("=" * 60)
+        self.logger.info(f"Preprocessing: {'Hough Deskewing' if self.config.approach.preprocessing.deskew else 'Basic (resize/normalize)'}")
+        self.logger.info(f"Segmentation: {self.config.approach.segmentation.model.upper()}")
+        self.logger.info(f"Extraction: {self.config.approach.extraction.method}")
+        self.logger.info(f"Loss Function: {self.config.approach.loss.type}")
+        self.logger.info(f"Calibration Chain: {' → '.join(self.config.approach.calibration.fallback_chain)}")
+        self.logger.info("=" * 60)
 
 
 def create_pipeline_from_config(config: DictConfig) -> PipelineFactory:

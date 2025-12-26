@@ -10,7 +10,7 @@ import ray
 from ray import data as ray_data
 import numpy as np
 import pandas as pd
-from loguru import logger
+import logging
 
 
 @ray.remote
@@ -89,7 +89,7 @@ def create_ray_dataset(
             for img_file in record_dir.glob("*.jpg"):
                 image_paths.append(str(img_file))
     
-    logger.info(f"Found {len(image_paths)} images in {data_dir / subdir}")
+    logging.getLogger(__name__).info(f"Found {len(image_paths)} images in {data_dir / subdir}")
     
     # Create Ray Dataset
     ds = ray_data.from_items([{"path": p} for p in image_paths])

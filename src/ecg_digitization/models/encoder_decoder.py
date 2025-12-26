@@ -8,7 +8,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
-from loguru import logger
+import logging
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import segmentation_models_pytorch as smp
 
 
 class ECGEncoderDecoder(nn.Module):
@@ -42,6 +46,7 @@ class ECGEncoderDecoder(nn.Module):
             decoder_attention_type: Type of attention in decoder
         """
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         
         # Use UNet++ for good multi-scale feature fusion
         self.model = smp.UnetPlusPlus(
@@ -70,7 +75,7 @@ class ECGEncoderDecoder(nn.Module):
         # Optional lead segmentation head
         self.segment_leads = nn.Conv2d(64, 13, 1)  # 12 leads + background
         
-        logger.info(f"Created ECGEncoderDecoder with encoder={encoder_name}")
+        self.logger.info(f"Created ECGEncoderDecoder with encoder={encoder_name}")
     
     def forward(
         self,
@@ -93,7 +98,7 @@ class ECGEncoderDecoder(nn.Module):
         encoder_features = self.model.encoder(x)
         
         # Decoder
-        decoder_out = self.model.decoder(*encoder_features)
+        decoder_out = self.model.decoder(encoder_features)
         
         # Feature head
         features = self.feature_head(decoder_out)

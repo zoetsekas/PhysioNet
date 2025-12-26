@@ -9,8 +9,8 @@ import cv2
 import numpy as np
 import pandas as pd
 import torch
+import logging
 from torch.utils.data import Dataset
-from loguru import logger
 
 
 class ECGImageDataset(Dataset):
@@ -52,11 +52,13 @@ class ECGImageDataset(Dataset):
         self.transform = transform
         self.is_train = is_train
         self.image_suffix = image_suffix
+        self.logger = logging.getLogger(__name__)
         
         # Load metadata
         if metadata_path is None:
             metadata_path = self.data_dir / ("train.csv" if is_train else "test.csv")
         self.metadata = pd.read_csv(metadata_path)
+        self.metadata["id"] = self.metadata["id"].astype(str)
         
         # Get unique record IDs
         self.record_ids = self.metadata["id"].unique().tolist()
@@ -64,7 +66,7 @@ class ECGImageDataset(Dataset):
         if max_samples is not None:
             self.record_ids = self.record_ids[:max_samples]
             
-        logger.info(f"Loaded {len(self.record_ids)} records from {metadata_path}")
+        self.logger.info(f"Loaded {len(self.record_ids)} records from {metadata_path}")
         
     def __len__(self) -> int:
         return len(self.record_ids)
@@ -163,7 +165,7 @@ class ECGImageDataset(Dataset):
             if lead in signal_df.columns:
                 signals.append(signal_df[lead].values)
             else:
-                logger.warning(f"Lead {lead} not found in {signal_path}")
+                self.logger.warning(f"Lead {lead} not found in {signal_path}")
                 signals.append(np.zeros(len(signal_df)))
                 
         return np.stack(signals, axis=0)  # [12, T]

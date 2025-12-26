@@ -9,7 +9,7 @@ from typing import Optional, Tuple, Dict
 import numpy as np
 import cv2
 from scipy import signal as scipy_signal
-from loguru import logger
+import logging
 
 
 def calibrate_signal(
@@ -37,20 +37,20 @@ def calibrate_signal(
     pixels_per_mv = detect_calibration_pulse(image, mask)
     if pixels_per_mv is not None:
         method_used = "calibration_pulse"
-        logger.info(f"Using calibration pulse: {pixels_per_mv:.2f} pixels/mV")
+        logging.getLogger(__name__).info(f"Using calibration pulse: {pixels_per_mv:.2f} pixels/mV")
     
     # Method 2: Measure grid spacing
     if pixels_per_mv is None:
         pixels_per_mv = detect_grid_spacing(image)
         if pixels_per_mv is not None:
             method_used = "grid_spacing"
-            logger.info(f"Using grid spacing: {pixels_per_mv:.2f} pixels/mV")
+            logging.getLogger(__name__).info(f"Using grid spacing: {pixels_per_mv:.2f} pixels/mV")
     
     # Method 3: Blind calibration from QRS amplitude
     if pixels_per_mv is None:
         pixels_per_mv = estimate_from_qrs_amplitude(pixel_signal, fs)
         method_used = "blind_qrs"
-        logger.warning(f"Using blind QRS calibration: {pixels_per_mv:.2f} pixels/mV")
+        logging.getLogger(__name__).warning(f"Using blind QRS calibration: {pixels_per_mv:.2f} pixels/mV")
     
     # Detect baseline
     baseline = detect_baseline(pixel_signal)
@@ -58,7 +58,7 @@ def calibrate_signal(
     # Convert to mV
     voltage = (baseline - pixel_signal) / pixels_per_mv  # Invert Y-axis
     
-    logger.info(f"Calibration: method={method_used}, baseline={baseline:.1f}px, "
+    logging.getLogger(__name__).info(f"Calibration: method={method_used}, baseline={baseline:.1f}px, "
                 f"scale={pixels_per_mv:.2f}px/mV, range=[{voltage.min():.2f}, {voltage.max():.2f}]mV")
     
     return voltage
@@ -103,7 +103,7 @@ def detect_calibration_pulse(
         if 0.8 < aspect_ratio < 1.2 and 100 < area < 10000:
             # This might be the calibration pulse
             pixels_per_mv = h / pulse_height_mv
-            logger.info(f"Found potential calibration pulse: {w}x{h}px at ({x},{y})")
+            logging.getLogger(__name__).info(f"Found potential calibration pulse: {w}x{h}px at ({x},{y})")
             return pixels_per_mv
     
     return None
@@ -161,7 +161,7 @@ def detect_grid_spacing(
     # Spacing corresponds to 1 large box (0.5 mV)
     pixels_per_mv = avg_spacing / grid_box_mv
     
-    logger.info(f"Detected grid spacing: {avg_spacing:.2f} pixels = {grid_box_mv} mV")
+    logging.getLogger(__name__).info(f"Detected grid spacing: {avg_spacing:.2f} pixels = {grid_box_mv} mV")
     
     return pixels_per_mv
 
@@ -187,7 +187,7 @@ def estimate_from_qrs_amplitude(
     r_peaks = detect_r_peaks(pixel_signal, fs)
     
     if len(r_peaks) == 0:
-        logger.warning("No R-peaks detected, using default calibration")
+        logging.getLogger(__name__).warning("No R-peaks detected, using default calibration")
         return 20.0  # Fallback default
     
     # Measure R-peak amplitudes (relative to baseline)
@@ -200,7 +200,7 @@ def estimate_from_qrs_amplitude(
     # Estimate scale
     pixels_per_mv = median_r_amplitude_px / expected_r_wave_mv
     
-    logger.info(f"Blind calibration: median R-wave = {median_r_amplitude_px:.1f}px "
+    logging.getLogger(__name__).info(f"Blind calibration: median R-wave = {median_r_amplitude_px:.1f}px "
                 f"→ {pixels_per_mv:.2f} px/mV")
     
     return pixels_per_mv

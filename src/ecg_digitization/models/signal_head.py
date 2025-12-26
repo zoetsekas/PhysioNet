@@ -6,12 +6,11 @@ from typing import Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from loguru import logger
+import logging
 
 
 class SignalRegressionHead(nn.Module):
     """Regresses ECG signals from 2D image features."""
-    
     def __init__(
         self,
         in_channels: int = 64,
@@ -21,6 +20,7 @@ class SignalRegressionHead(nn.Module):
         num_layers: int = 3,
     ):
         super().__init__()
+        self.logger = logging.getLogger(__name__)
         self.num_leads = num_leads
         self.signal_length = signal_length
         
@@ -37,7 +37,7 @@ class SignalRegressionHead(nn.Module):
         self.decoder = nn.Sequential(*layers)
         self.output_proj = nn.Conv1d(hidden_dim, num_leads, 1)
         
-        logger.info(f"Created SignalRegressionHead: {num_leads} leads")
+        self.logger.info(f"Created SignalRegressionHead: {num_leads} leads")
     
     def forward(self, features: torch.Tensor, target_length: Optional[int] = None) -> torch.Tensor:
         if target_length is None:
