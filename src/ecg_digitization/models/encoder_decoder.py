@@ -81,6 +81,7 @@ class ECGEncoderDecoder(nn.Module):
         self,
         x: torch.Tensor,
         return_segmentation: bool = False,
+        **kwargs,
     ) -> Dict[str, torch.Tensor]:
         """Forward pass.
         
@@ -106,6 +107,7 @@ class ECGEncoderDecoder(nn.Module):
         outputs = {
             "features": features,
             "encoder_features": encoder_features,
+            "signals": features, # Fallback/Placeholder for trainers expecting signals
         }
         
         if return_segmentation:

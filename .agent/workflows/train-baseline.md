@@ -30,11 +30,13 @@ docker compose -f docker/docker-compose.yml build
 
 ```powershell
 docker run --gpus all -it --rm `
+  --network trading_network `
   -v ${PWD}/data:/app/data `
   -v ${PWD}/models:/app/models `
   -v ${PWD}/configs:/app/configs `
   -v ${PWD}/reports:/app/reports `
-  -e MLFLOW_TRACKING_URI=http://host.docker.internal:5050 `
+  -v ${PWD}/src:/app/src `
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
   ecg-digitization:latest `
   python -m ecg_digitization.train approach=baseline
 ```

@@ -76,6 +76,18 @@ class NoOpMLflowTracker:
     def end_run(self, *args, **kwargs):
         """No-op end run."""
         pass
+    
+    def log_model_architecture(self, *args, **kwargs):
+        """No-op log model architecture."""
+        pass
+    
+    def log_system_info(self, *args, **kwargs):
+        """No-op log system info."""
+        pass
+    
+    def log_training_summary(self, *args, **kwargs):
+        """No-op log training summary."""
+        pass
 
 
 def create_mlflow_tracker(
@@ -309,6 +321,110 @@ class MLflowExperimentTracker:
         if self.run:
             mlflow.end_run(status=status)
             self.logger.info(f"Ended MLflow run with status: {status}")
+    
+    def log_model_architecture(self, model: nn.Module, input_shape: tuple = (1, 3, 512, 640)):
+        """Log detailed model architecture information.
+        
+        Args:
+            model: PyTorch model
+            input_shape: Shape of input tensor for summary
+        """
+        # Basic model info
+        model_info = {
+            "model_class": model.__class__.__name__,
+            "total_parameters": sum(p.numel() for p in model.parameters()),
+            "trainable_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
+        }
+        
+        # Log as params
+        mlflow.log_params({
+            "model.class": model_info["model_class"],
+            "model.total_params": model_info["total_parameters"],
+            "model.trainable_params": model_info["trainable_parameters"],
+        })
+        
+        # Log model summary as artifact
+        summary_lines = []
+        summary_lines.append(f"Model: {model_info['model_class']}")
+        summary_lines.append(f"Total Parameters: {model_info['total_parameters']:,}")
+        summary_lines.append(f"Trainable Parameters: {model_info['trainable_parameters']:,}")
+        summary_lines.append(f"Non-trainable Parameters: {model_info['total_parameters'] - model_info['trainable_parameters']:,}")
+        summary_lines.append("")
+        summary_lines.append("Layer Summary:")
+        summary_lines.append("-" * 80)
+        
+        # Get layer info
+        for name, module in model.named_modules():
+            if len(list(module.children())) == 0:  # Leaf modules only
+                params = sum(p.numel() for p in module.parameters())
+                summary_lines.append(f"{name}: {module.__class__.__name__} ({params:,} params)")
+        
+        # Save as artifact
+        summary_text = "\n".join(summary_lines)
+        temp_path = Path("/tmp/model_architecture.txt")
+        temp_path.write_text(summary_text)
+        mlflow.log_artifact(str(temp_path))
+        temp_path.unlink()
+        
+        self.logger.info(f"Logged model architecture: {model_info['trainable_parameters']:,} trainable params")
+    
+    def log_system_info(self):
+        """Log system and environment information."""
+        import platform
+        import sys
+        
+        system_info = {
+            "python_version": sys.version.split()[0],
+            "pytorch_version": torch.__version__,
+            "cuda_available": str(torch.cuda.is_available()),
+            "platform": platform.platform(),
+        }
+        
+        if torch.cuda.is_available():
+            system_info["cuda_version"] = torch.version.cuda
+            system_info["gpu_name"] = torch.cuda.get_device_name(0)
+            system_info["gpu_memory_gb"] = f"{torch.cuda.get_device_properties(0).total_memory / 1e9:.1f}"
+        
+        mlflow.set_tags({f"system.{k}": v for k, v in system_info.items()})
+        self.logger.info("Logged system info to MLflow tags")
+    
+    def log_training_summary(
+        self,
+        train_losses: List[float],
+        val_losses: List[float],
+        best_epoch: int,
+        best_val_loss: float,
+        training_time_seconds: float,
+    ):
+        """Log comprehensive training summary.
+        
+        Args:
+            train_losses: List of training losses per epoch
+            val_losses: List of validation losses per epoch
+            best_epoch: Epoch with best validation loss
+            best_val_loss: Best validation loss achieved
+            training_time_seconds: Total training time
+        """
+        mlflow.log_metrics({
+            "final_train_loss": train_losses[-1] if train_losses else 0,
+            "final_val_loss": val_losses[-1] if val_losses else 0,
+            "best_val_loss": best_val_loss,
+            "best_epoch": best_epoch,
+            "num_epochs": len(train_losses),
+            "training_time_seconds": training_time_seconds,
+            "training_time_minutes": training_time_seconds / 60,
+        })
+        
+        # Log loss curves as JSON artifact
+        loss_history = {
+            "epochs": list(range(1, len(train_losses) + 1)),
+            "train_losses": train_losses,
+            "val_losses": val_losses,
+        }
+        mlflow.log_dict(loss_history, "loss_history.json")
+        
+        self.logger.info(f"Logged training summary: best_val_loss={best_val_loss:.4f} at epoch {best_epoch}")
+
     
     def _flatten_dict(
         self,

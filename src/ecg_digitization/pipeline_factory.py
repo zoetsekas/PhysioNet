@@ -72,23 +72,24 @@ class PipelineFactory:
                 )
             except Exception as e:
                 if use_fallback:
-                    self.logger.warning(f"nnU-Net failed ({e}), falling back to UNet++")
-                    return self._create_unet_plus_plus(**kwargs)
+                    self.logger.warning(f"nnU-Net failed ({e}), falling back to ECGDigitizer")
+                    self._using_ecg_digitizer = True  # Track fallback
+                    return ECGDigitizer(
+                        encoder_name=self.config.model.encoder_name,
+                        encoder_weights=self.config.model.encoder_weights,
+                    )
                 else:
                     raise
         
         elif model_type == "unet++":
             self.logger.info("Segmentation: UNet++ (baseline)")
-            model = self._create_unet_plus_plus(**kwargs)
-            
-            # If regression loss is used, wrap in ECGDigitizer
-            if self.config.approach.loss.type == "regression":
-                self.logger.info("Wrapping in ECGDigitizer for regression training")
-                return ECGDigitizer(
-                    encoder_name=self.config.model.encoder_name,
-                    encoder_weights=self.config.model.encoder_weights,
-                )
-            return model
+            # Always use ECGDigitizer for training as trainer expects 'signals' output
+            self.logger.info("Creating ECGDigitizer for training")
+            self._using_ecg_digitizer = True
+            return ECGDigitizer(
+                encoder_name=self.config.model.encoder_name,
+                encoder_weights=self.config.model.encoder_weights,
+            )
         
         else:
             raise ValueError(f"Unknown segmentation model: {model_type}")
@@ -138,6 +139,11 @@ class PipelineFactory:
             Loss function module
         """
         loss_type = self.config.approach.loss.type
+        
+        # If we're using ECGDigitizer (fallback), we need regression loss
+        if getattr(self, '_using_ecg_digitizer', False) and loss_type == "segmentation":
+            self.logger.warning("Using ECGDigitizer - switching to regression loss")
+            loss_type = "regression"
         
         if loss_type == "segmentation":
             self.logger.info("Loss: Segmentation (Dice + CE) - SignalSavants")

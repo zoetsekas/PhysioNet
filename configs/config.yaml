@@ -13,17 +13,17 @@ project:
 
 mlflow:
   enabled: true  # Set to false to disable MLflow (e.g., for Kaggle)
-  tracking_uri: "http://localhost:5050"
+  tracking_uri: "http://mlflow-server:5050"
   experiment_name: "ecg-digitization"
 
 paths:
-  data_dir: data
+  data_dir: /app/data
   train_dir: ${paths.data_dir}/train
   test_dir: ${paths.data_dir}/test
-  output_dir: models
+  output_dir: /app/models
   checkpoint_dir: ${paths.output_dir}/checkpoints
   submission_dir: ${paths.data_dir}/submissions
-  log_dir: logs
+  log_dir: /app/logs
 
 hydra:
   run:

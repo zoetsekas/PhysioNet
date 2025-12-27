@@ -43,7 +43,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
       - WANDB_API_KEY=${WANDB_API_KEY:-}
-      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://host.docker.internal:5050}
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-http://mlflow-server:5050}
     ports:
       - "8888:8888" # Jupyter
       - "5000:5000" # MLflow

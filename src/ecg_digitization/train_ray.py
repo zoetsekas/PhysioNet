@@ -5,12 +5,14 @@ from omegaconf import DictConfig, OmegaConf
 import ray
 import mlflow
 import logging
+import torch
+
 
 from ecg_digitization.training import RayTrainer
 from ecg_digitization.utils import setup_logging
 
 
-@hydra.main(config_path="../configs", config_name="config", version_base=None)
+@hydra.main(config_path="../../configs", config_name="config", version_base=None)
 def main(cfg: DictConfig):
     """Main entry point for Ray-based training."""
     _logger = logging.getLogger(__name__)
@@ -70,8 +72,35 @@ def main(cfg: DictConfig):
     # Check if we should tune or just train
     mode = cfg.get("mode", "train")
     
-    with mlflow.start_run(run_name=f"ecg_{mode}"):
+    with mlflow.start_run(run_name=f"ecg_{mode}") as run:
+        # Log all config parameters
         mlflow.log_params(OmegaConf.to_container(cfg, resolve=True))
+        
+        # Log system info as tags
+        import platform
+        import sys
+        mlflow.set_tags({
+            "system.python_version": sys.version.split()[0],
+            "system.pytorch_version": torch.__version__,
+            "system.platform": platform.platform(),
+            "ray.mode": mode,
+            "ray.num_workers": cfg.get("ray", {}).get("num_workers", 1),
+            "ray.num_gpus": cfg.get("ray", {}).get("num_gpus", 1),
+        })
+        
+        if torch.cuda.is_available():
+            mlflow.set_tags({
+                "system.cuda_version": torch.version.cuda,
+                "system.gpu_name": torch.cuda.get_device_name(0),
+                "system.gpu_memory_gb": f"{torch.cuda.get_device_properties(0).total_memory / 1e9:.1f}",
+            })
+        
+        # Log Ray cluster resources
+        mlflow.log_dict(
+            {"ray_resources": {k: float(v) if isinstance(v, (int, float)) else str(v) 
+                              for k, v in ray.cluster_resources().items()}},
+            "ray_cluster_resources.json"
+        )
         
         if mode == "tune":
             _logger.info("Starting hyperparameter tuning...")
@@ -82,16 +111,52 @@ def main(cfg: DictConfig):
             )
             
             best = results.get_best_result(metric="val_snr", mode="max")
-            mlflow.log_params({"best_" + k: v for k, v in best.config.get("train_loop_config", {}).items()})
-            mlflow.log_metric("best_val_snr", best.metrics.get("val_snr", 0))
+            
+            # Log best hyperparameters with prefix
+            best_config = best.config.get("train_loop_config", {})
+            mlflow.log_params({f"best_{k}": v for k, v in best_config.items() 
+                             if not k.startswith("_") and k not in ["data_dir", "checkpoint_dir"]})
+            
+            # Log best metrics
+            mlflow.log_metrics({
+                "best_val_snr": best.metrics.get("val_snr", 0),
+                "best_val_loss": best.metrics.get("val_loss", 0),
+                "best_train_loss": best.metrics.get("train_loss", 0),
+                "num_trials_completed": len(results),
+            })
+            
+            # Log all trial results as artifact
+            trial_summaries = []
+            for i, result in enumerate(results):
+                trial_summaries.append({
+                    "trial_id": i,
+                    "val_snr": result.metrics.get("val_snr", 0),
+                    "val_loss": result.metrics.get("val_loss", 0),
+                    "learning_rate": result.config.get("train_loop_config", {}).get("learning_rate"),
+                    "batch_size": result.config.get("train_loop_config", {}).get("batch_size"),
+                })
+            mlflow.log_dict({"trials": trial_summaries}, "tuning_trials.json")
             
         else:
             _logger.info("Starting distributed training...")
             result = trainer.train()
             
-            mlflow.log_metric("final_train_loss", result.metrics.get("train_loss", 0))
-            mlflow.log_metric("final_val_loss", result.metrics.get("val_loss", 0))
-            mlflow.log_metric("final_val_snr", result.metrics.get("val_snr", 0))
+            # Log final metrics
+            mlflow.log_metrics({
+                "final_train_loss": result.metrics.get("train_loss", 0),
+                "final_val_loss": result.metrics.get("val_loss", 0),
+                "final_val_snr": result.metrics.get("val_snr", 0),
+            })
+            
+            # Log training result summary
+            mlflow.log_dict(
+                {"final_metrics": {k: float(v) if isinstance(v, (int, float)) else str(v) 
+                                  for k, v in result.metrics.items()}},
+                "training_result.json"
+            )
+        
+        # Log run link
+        _logger.info(f"🧪 View experiment at: {mlflow.get_tracking_uri()}/#/experiments/{run.info.experiment_id}/runs/{run.info.run_id}")
     
     ray.shutdown()
     _logger.info("Training complete!")

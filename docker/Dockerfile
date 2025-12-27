@@ -12,6 +12,14 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEBIAN_FRONTEND=noninteractive
 
+# nnU-Net environment variables (required for nnunetv2)
+ENV nnUNet_raw="/app/nnunet/raw" \
+    nnUNet_preprocessed="/app/nnunet/preprocessed" \
+    nnUNet_results="/app/nnunet/results"
+
+# Ray configuration
+ENV RAY_ACCEL_ENV_VAR_OVERRIDE_ON_ZERO=0
+
 # Set working directory
 WORKDIR /app
 
@@ -26,6 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxrender-dev \
     libgomp1 \
     ffmpeg \
+    git \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -86,7 +95,10 @@ RUN mkdir -p /app/data/raw \
     /app/data/submissions \
     /app/models/checkpoints \
     /app/models/exports \
-    /app/logs
+    /app/logs \
+    /app/nnunet/raw \
+    /app/nnunet/preprocessed \
+    /app/nnunet/results
 
 # Set HuggingFace cache directory
 ENV HF_HOME=/app/.cache/huggingface

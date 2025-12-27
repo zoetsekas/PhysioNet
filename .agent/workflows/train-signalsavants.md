@@ -20,7 +20,7 @@ docker info
 ### 2. Check MLflow Server is Running
 
 ```powershell
-curl http://localhost:5050/health
+curl.exe http://localhost:5050/health
 ```
 
 **Expected**: Returns HTTP 200  
@@ -48,12 +48,14 @@ docker compose -f docker/docker-compose.yml build
 
 ```powershell
 docker run --gpus all -it --rm `
+  --network trading_network `
   --shm-size=8g `
   -v ${PWD}/data:/app/data `
   -v ${PWD}/models:/app/models `
   -v ${PWD}/configs:/app/configs `
   -v ${PWD}/reports:/app/reports `
-  -e MLFLOW_TRACKING_URI=http://host.docker.internal:5050 `
+  -v ${PWD}/src:/app/src `
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
   ecg-digitization:latest `
   python -m ecg_digitization.train approach=signalsavants
 ```
@@ -66,12 +68,14 @@ For better performance with multi-GPU support:
 
 ```powershell
 docker run --gpus all -it --rm `
+  --network trading_network `
   --shm-size=8g `
   -v ${PWD}/data:/app/data `
   -v ${PWD}/models:/app/models `
   -v ${PWD}/configs:/app/configs `
   -v ${PWD}/reports:/app/reports `
-  -e MLFLOW_TRACKING_URI=http://host.docker.internal:5050 `
+  -v ${PWD}/src:/app/src `
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
   ecg-digitization:latest `
   python -m ecg_digitization.train_ray mode=train
 ```
@@ -96,9 +100,10 @@ Generate experiment summary:
 
 ```powershell
 docker run -it --rm `
+  --network trading_network `
   -v ${PWD}/reports:/app/reports `
   ecg-digitization:latest `
-  python -c "from ecg_digitization.utils import ExperimentReportGenerator; g = ExperimentReportGenerator('http://host.docker.internal:5050'); g.generate_experiment_summary('ecg-digitization', 10)"
+  python -c "from ecg_digitization.utils import ExperimentReportGenerator; g = ExperimentReportGenerator('http://mlflow-server:5050'); g.generate_experiment_summary('ecg-digitization', 10)"
 ```
 
 ## Expected Performance

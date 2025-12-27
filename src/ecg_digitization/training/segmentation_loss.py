@@ -24,7 +24,7 @@ class DiceLoss(nn.Module):
         super().__init__()
         self.smooth = smooth
     
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, **kwargs) -> torch.Tensor:
         """Compute Dice Loss.
         
         Args:
@@ -69,7 +69,7 @@ class FocalLoss(nn.Module):
         self.alpha = alpha
         self.gamma = gamma
     
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, **kwargs) -> torch.Tensor:
         """Compute Focal Loss.
         
         Args:
@@ -127,7 +127,7 @@ class SegmentationLoss(nn.Module):
         else:
             self.ce_loss = nn.BCEWithLogitsLoss()
     
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, **kwargs) -> torch.Tensor:
         """Compute combined loss.
         
         Args:
@@ -164,7 +164,7 @@ class TverskyLoss(nn.Module):
         self.beta = beta
         self.smooth = smooth
     
-    def forward(self, pred: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, **kwargs) -> torch.Tensor:
         """Compute Tversky Loss.
         
         Args:

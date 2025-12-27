@@ -35,10 +35,14 @@ docker compose version
 
 ## MLflow Server
 
-### 3. Check MLflow Health Endpoint
-
+### 3. Check MLflow server status (Host):
 ```powershell
-curl http://localhost:5050/health
+curl.exe http://localhost:5050/health
+```
+
+### 4. Check MLflow connectivity from within Docker network:
+```powershell
+docker run --rm --network trading_network curlimages/curl:latest http://mlflow-server:5050/health
 ```
 
 **Expected Output**: HTTP 200 OK  

@@ -20,7 +20,7 @@ docker info
 ### 2. Check MLflow Server is Running
 
 ```powershell
-curl http://localhost:5050/health
+curl.exe http://localhost:5050/health
 ```
 
 **Expected**: Returns HTTP 200  
@@ -32,8 +32,8 @@ curl http://localhost:5050/health
 nvidia-smi
 ```
 
-**Expected**: RTX 5090 with >16GB available memory  
-**Why**: Tuning runs multiple trials simultaneously
+**Expected**: RTX 5090 with 32GB memory (single GPU)  
+**Note**: Tuning runs trials sequentially on single GPU
 
 ## Configuration
 
@@ -44,9 +44,9 @@ Get-Content configs/ray.yaml
 ```
 
 Key parameters:
-- `tune.num_samples`: 20 trials
-- `tune.max_concurrent_trials`: 2
-- `tune.grace_period`: 5 epochs minimum
+- `tune.num_samples`: 10 trials (sequential)
+- `tune.max_concurrent_trials`: 1 (single GPU)
+- `tune.grace_period`: 3 epochs minimum
 
 **Adjust if needed**: Edit `configs/ray.yaml`
 
@@ -63,17 +63,19 @@ docker compose -f docker/docker-compose.yml build
 
 ```powershell
 docker run --gpus all -it --rm `
-  --shm-size=8g `
+  --network trading_network `
+  --shm-size=16g `
   -v ${PWD}/data:/app/data `
   -v ${PWD}/models:/app/models `
   -v ${PWD}/configs:/app/configs `
   -v ${PWD}/reports:/app/reports `
-  -e MLFLOW_TRACKING_URI=http://host.docker.internal:5050 `
+  -v ${PWD}/src:/app/src `
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
   ecg-digitization:latest `
-  python -m ecg_digitization.train_ray mode=tune
+  python -m ecg_digitization.train_ray +mode=tune
 ```
 
-**Estimated Time**: 8-12 hours (20 trials × ~30min each)
+**Estimated Time**: 4-6 hours (10 trials × ~30min each, sequential)
 
 ## Monitoring
 
@@ -103,9 +105,10 @@ Check the parent run in MLflow:
 
 ```powershell
 docker run -it --rm `
+  --network trading_network `
   -v ${PWD}/reports:/app/reports `
   ecg-digitization:latest `
-  python -c "from ecg_digitization.utils import ExperimentReportGenerator; g = ExperimentReportGenerator('http://host.docker.internal:5050'); g.generate_experiment_summary('ecg-digitization', 20)"
+  python -c "from ecg_digitization.utils import ExperimentReportGenerator; g = ExperimentReportGenerator('http://mlflow-server:5050'); g.generate_experiment_summary('ecg-digitization', 20)"
 ```
 
 ### 11. Train Final Model with Best Hyperparameters
@@ -114,10 +117,13 @@ Extract best params from MLflow, then:
 
 ```powershell
 docker run --gpus all -it --rm `
+  --network trading_network `
   --shm-size=8g `
   -v ${PWD}/data:/app/data `
   -v ${PWD}/models:/app/models `
   -v ${PWD}/configs:/app/configs `
+  -v ${PWD}/src:/app/src `
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
   ecg-digitization:latest `
   python -m ecg_digitization.train approach=signalsavants `
     training.learning_rate=<best_lr> `
@@ -133,10 +139,10 @@ Default search space (defined in `training/ray_trainer.py`):
 
 ## Expected Results
 
-- **Number of Trials**: 20
+- **Number of Trials**: 10 (sequential)
 - **Completion Rate**: ~60-80% (ASHA stops poor performers)
 - **Best SNR Improvement**: +2-5 dB over defaults
-- **Resource Usage**: 2 GPUs active simultaneously
+- **Resource Usage**: Single GPU (NVIDIA 5090 32GB)
 
 ## Troubleshooting
 
@@ -144,9 +150,15 @@ Default search space (defined in `training/ray_trainer.py`):
 ```powershell
 # Resume from checkpoint
 docker run --gpus all -it --rm `
+  --network trading_network `
+  --shm-size=16g `
+  -v ${PWD}/data:/app/data `
   -v ${PWD}/models:/app/models `
+  -v ${PWD}/configs:/app/configs `
+  -v ${PWD}/src:/app/src `
+  -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
   ecg-digitization:latest `
-  python -m ecg_digitization.train_ray mode=tune resume=true
+  python -m ecg_digitization.train_ray +mode=tune +resume=true
 ```
 
 **Out of GPU memory**:

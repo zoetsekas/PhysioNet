@@ -39,6 +39,7 @@ class nnUNetSegmenter(nn.Module):
         checkpoint_dir: str = "models/nnunet",
         dataset_id: int = 100,
         configuration: str = "2d",
+        **kwargs,
     ):
         """Initialize nnU-Net model.
         
@@ -54,6 +55,16 @@ class nnUNetSegmenter(nn.Module):
         if not NNUNET_AVAILABLE:
             self.logger.error("nnUNetv2 not available. Cannot initialize.")
             raise ImportError("Please install: pip install nnunetv2")
+        
+        # Check for required environment variables
+        import os
+        nnunet_results = os.environ.get("nnUNet_results")
+        nnunet_raw = os.environ.get("nnUNet_raw")
+        if not nnunet_results or not nnunet_raw:
+            raise RuntimeError(
+                "nnU-Net environment variables not set. "
+                "Set nnUNet_results and nnUNet_raw, or use fallback model."
+            )
         
         self.fold = fold
         self.checkpoint_dir = Path(checkpoint_dir)
@@ -110,7 +121,8 @@ class nnUNetSegmenter(nn.Module):
     def forward(
         self,
         x: torch.Tensor,
-    ) -> torch.Tensor:
+        **kwargs,
+    ) -> Dict[str, torch.Tensor]:
         """Forward pass for compatibility.
         
         Note: nnU-Net uses its own inference pipeline.
@@ -138,7 +150,13 @@ class nnUNetSegmenter(nn.Module):
             predictions.append(pred)
         
         predictions = np.stack(predictions)
-        return torch.from_numpy(predictions).to(x.device)
+        preds_tensor = torch.from_numpy(predictions).to(x.device)
+        
+        # Return dictionary for trainer compatibility
+        return {
+            "segmentation": preds_tensor,
+            "signals": preds_tensor, # Placeholder for signal-based losses
+        }
     
     def _get_dataset_json(self) -> str:
         """Get dataset JSON path for nnU-Net."""
@@ -192,7 +210,7 @@ class FallbackUNet(nn.Module):
             nn.ReLU(inplace=True),
         )
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, **kwargs) -> Dict[str, torch.Tensor]:
         skip_connections = []
         
         # Encoder
@@ -218,7 +236,8 @@ class FallbackUNet(nn.Module):
             x = torch.cat([skip, x], dim=1)
             x = decoder_block(x)
         
-        return self.output(x)
+        out = self.output(x)
+        return {"signals": out, "segmentation": out}
 
 
 def get_segmenter(use_nnunet: bool = True, **kwargs) -> nn.Module:

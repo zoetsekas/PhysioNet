@@ -45,6 +45,27 @@ def main(cfg: DictConfig):
         config_dict = OmegaConf.to_container(cfg, resolve=True)
         mlflow_tracker.log_config(config_dict)
         
+        # Log full config as YAML artifact
+        config_yaml = OmegaConf.to_yaml(cfg)
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            f.write(config_yaml)
+            config_path = f.name
+        mlflow_tracker.log_artifact(config_path, "configs")
+        Path(config_path).unlink()
+        
+        # Log system info
+        mlflow_tracker.log_system_info()
+        
+        # Log activated components
+        mlflow_tracker.set_tags({
+            "component.approach": cfg.approach.method,
+            "component.model_type": cfg.approach.model.type,
+            "component.encoder": cfg.model.encoder_name,
+            "component.loss_type": cfg.approach.loss.type,
+            "component.segmentation": cfg.approach.get("segmentation", {}).get("architecture", "n/a"),
+        })
+        
         # Create pipeline from configuration
         factory = create_pipeline_from_config(cfg)
         
@@ -106,6 +127,9 @@ def main(cfg: DictConfig):
             encoder_weights=cfg.model.encoder_weights,
         )
         
+        # Log model architecture to MLflow
+        mlflow_tracker.log_model_architecture(model)
+        
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=cfg.training.learning_rate,
@@ -135,23 +159,30 @@ def main(cfg: DictConfig):
         # Train model
         trainer.train(cfg.training.epochs)
         
-        # Log final model registered model
-        mlflow_tracker.log_model(
-            model=model,
-            artifact_path="final_model",
-            registered_model_name=f"ecg_digitizer_{cfg.approach.method}",
-        )
+        # Log final model (optional - can be slow for large models)
+        try:
+            logger.info("Logging final model to MLflow...")
+            mlflow_tracker.log_model(
+                model=model,
+                artifact_path="final_model",
+                registered_model_name=f"ecg_digitizer_{cfg.approach.method}",
+            )
+        except Exception as e:
+            logger.warning(f"Failed to log model to MLflow: {e}")
         
-        # Generate experiment report
-        from ecg_digitization.utils.report_generator import generate_report_for_run
-        
-        run_id = mlflow_tracker.run.info.run_id
-        report_path = generate_report_for_run(
-            run_id=run_id,
-            tracking_uri=cfg.mlflow.tracking_uri,
-            reports_dir=cfg.paths.get("reports_dir", "reports"),
-        )
-        logger.info(f"📊 Experiment report generated: {report_path}")
+        # Generate experiment report (optional)
+        try:
+            from ecg_digitization.utils.report_generator import generate_report_for_run
+            
+            run_id = mlflow_tracker.run.info.run_id
+            report_path = generate_report_for_run(
+                run_id=run_id,
+                tracking_uri=cfg.mlflow.tracking_uri,
+                reports_dir=cfg.paths.get("reports_dir", "reports"),
+            )
+            logger.info(f"📊 Experiment report generated: {report_path}")
+        except Exception as e:
+            logger.warning(f"Failed to generate report: {e}")
         
         # End run successfully
         mlflow_tracker.end_run(status="FINISHED")
