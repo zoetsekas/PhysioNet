@@ -81,6 +81,8 @@ def get_best_params_from_experiment(
         for param in hyperparams:
             if param in best_run.data.params:
                 best_params[param] = _parse_value(best_run.data.params[param])
+            elif f"best_{param}" in best_run.data.params:
+                best_params[param] = _parse_value(best_run.data.params[f"best_{param}"])
     
     # Add run info
     best_params["_run_id"] = best_run.info.run_id

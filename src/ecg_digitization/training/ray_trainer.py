@@ -156,8 +156,133 @@ def train_func(config: Dict[str, Any]):
             )
             train.report(metrics, checkpoint=Checkpoint.from_directory(temp_dir))
 
-
 import tempfile
+
+
+def tune_trainable(config: Dict[str, Any]):
+    """Trainable function for Ray Tune (single GPU per trial).
+    
+    This is a simplified version that doesn't use Ray Train's distributed APIs.
+    """
+    from ecg_digitization.data import ECGImageDataset, get_train_transforms, get_val_transforms, collate_fn
+    from ecg_digitization.models import ECGDigitizer
+    from ecg_digitization.training import CombinedLoss
+    from ray import tune
+    
+    # Get data directory from config
+    data_dir = config.get("data_dir", "/app/data")
+    
+    # Create transforms
+    image_size = (config.get("image_height", 512), config.get("image_width", 640))
+    train_transform = get_train_transforms(image_size, config.get("augment_prob", 0.5))
+    val_transform = get_val_transforms(image_size)
+    
+    # Create dataset
+    full_dataset = ECGImageDataset(
+        data_dir,
+        transform=train_transform,
+        is_train=True,
+    )
+    
+    # Split dataset
+    val_size = int(len(full_dataset) * config.get("val_split", 0.1))
+    train_size = len(full_dataset) - val_size
+    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    val_dataset.dataset.transform = val_transform
+    
+    # Create data loaders
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=config.get("batch_size", 4),
+        shuffle=True,
+        num_workers=2,
+        pin_memory=True,
+        collate_fn=collate_fn,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=config.get("batch_size", 4),
+        shuffle=False,
+        num_workers=2,
+        pin_memory=True,
+        collate_fn=collate_fn,
+    )
+    
+    # Create model
+    model = ECGDigitizer(
+        encoder_name=config.get("encoder_name", "resnet50"),
+        encoder_weights=config.get("encoder_weights", "imagenet"),
+        num_leads=config.get("num_leads", 12),
+        signal_length=config.get("signal_length", 5000),
+        hidden_dim=config.get("hidden_dim", 256),
+    )
+    model = model.cuda()
+    
+    # Optimizer and scheduler
+    optimizer = torch.optim.AdamW(
+        model.parameters(),
+        lr=config.get("learning_rate", 1e-4),
+        weight_decay=config.get("weight_decay", 1e-5),
+    )
+    
+    epochs = config.get("epochs", 10)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+    
+    # Loss function
+    criterion = CombinedLoss(
+        snr_weight=config.get("snr_weight", 1.0),
+        mse_weight=config.get("mse_weight", 0.1),
+    )
+    
+    # Training loop
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0.0
+        
+        for batch in train_loader:
+            images = batch["images"].cuda()
+            signals = batch["signals"].cuda()
+            masks = batch.get("signal_masks")
+            if masks is not None:
+                masks = masks.cuda()
+            
+            optimizer.zero_grad()
+            outputs = model(images, target_length=signals.shape[-1])
+            loss = criterion(outputs["signals"], signals, masks)
+            loss.backward()
+            
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.get("gradient_clip", 1.0))
+            
+            optimizer.step()
+            train_loss += loss.item()
+        
+        train_loss /= len(train_loader)
+        
+        # Validation
+        model.eval()
+        val_loss = 0.0
+        with torch.no_grad():
+            for batch in val_loader:
+                images = batch["images"].cuda()
+                signals = batch["signals"].cuda()
+                outputs = model(images, target_length=signals.shape[-1])
+                loss = criterion(outputs["signals"], signals)
+                val_loss += loss.item()
+        
+        val_loss /= len(val_loader)
+        scheduler.step()
+        
+        # Calculate SNR (negative loss is SNR)
+        val_snr = -val_loss
+        
+        # Report metrics to Ray Tune
+        tune.report({
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+            "val_snr": val_snr,
+            "training_iteration": epoch + 1,
+        })
 
 
 class RayTrainer:
@@ -236,17 +361,17 @@ class RayTrainer:
         Returns:
             ResultGrid with tuning results
         """
-        # Define search space
+        # Define search space - merge with base config
         search_space = {
             **self.config,
+            "epochs": max_epochs,  # Set epochs for tuning
             "learning_rate": tune.loguniform(1e-5, 1e-3),
-            "batch_size": tune.choice([2, 4, 8]),
-            "hidden_dim": tune.choice([128, 256, 512]),
+            "batch_size": tune.choice([2, 4]),
+            "hidden_dim": tune.choice([128, 256]),
             "snr_weight": tune.uniform(0.5, 2.0),
             "mse_weight": tune.uniform(0.05, 0.2),
             "augment_prob": tune.uniform(0.3, 0.7),
             "weight_decay": tune.loguniform(1e-6, 1e-4),
-            "encoder_name": tune.choice(["resnet50", "resnet101", "efficientnet_b3"]),
         }
         
         # ASHA scheduler for early stopping
@@ -257,45 +382,29 @@ class RayTrainer:
             reduction_factor=2,
         )
         
-        # Optuna search algorithm
-        search_alg = OptunaSearch(metric="val_snr", mode="max")
-        
-        scaling_config = ScalingConfig(
-            num_workers=1,  # Single GPU per trial for tuning
-            use_gpu=self.use_gpu,
-            resources_per_worker={"CPU": 4, "GPU": 1},
-        )
-        
-        trainer = TorchTrainer(
-            train_loop_per_worker=train_func,
-            scaling_config=scaling_config,
-        )
-        
+        # Create tuner following the example pattern
         tuner = tune.Tuner(
-            trainer,
-            param_space={"train_loop_config": search_space},
+            tune.with_resources(
+                tune_trainable,
+                resources={"cpu": 4, "gpu": 1}
+            ),
             tune_config=tune.TuneConfig(
                 metric="val_snr",
                 mode="max",
-                num_samples=num_samples,
                 scheduler=scheduler,
-                search_alg=search_alg,
+                num_samples=num_samples,
             ),
-            run_config=RunConfig(
-                name="ecg_digitization_tune",
-                checkpoint_config=CheckpointConfig(
-                    num_to_keep=1,
-                    checkpoint_score_attribute="val_snr",
-                    checkpoint_score_order="max",
-                ),
-            ),
+            param_space=search_space,
         )
         
         results = tuner.fit()
         
-        # Log best result
-        best_result = results.get_best_result(metric="val_snr", mode="max")
+        # Get best result
+        best_result = results.get_best_result("val_snr", "max")
+        
         self.logger.info(f"Best trial config: {best_result.config}")
-        self.logger.info(f"Best trial SNR: {best_result.metrics.get('val_snr', 'N/A')}")
+        self.logger.info(f"Best trial final val_snr: {best_result.metrics['val_snr']}")
+        self.logger.info(f"Best trial final val_loss: {best_result.metrics['val_loss']}")
         
         return results
+
