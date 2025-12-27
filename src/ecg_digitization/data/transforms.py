@@ -47,12 +47,12 @@ def get_train_transforms(
         
         # Noise - simulate sensor noise
         A.OneOf([
-            A.GaussNoise(var_limit=(5.0, 20.0), p=1.0),
+            A.GaussNoise(std_range=(3.2, 7.1), p=1.0), # Updated range (std = sqrt(var), var was 10-50)
             A.ISONoise(color_shift=(0.01, 0.03), intensity=(0.1, 0.3), p=1.0),
         ], p=p_augment * 0.3),
         
         # Image quality degradation - simulate JPEG artifacts
-        A.ImageCompression(quality_lower=70, quality_upper=100, p=p_augment * 0.2),
+        A.ImageCompression(quality_range=(70, 100), p=p_augment * 0.2),
         
         # Normalize to ImageNet stats (for pretrained backbones)
         A.Normalize(

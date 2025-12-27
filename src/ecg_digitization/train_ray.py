@@ -110,24 +110,59 @@ def main(cfg: DictConfig):
                 grace_period=cfg.get("tune", {}).get("grace_period", 5),
             )
             
-            best = results.get_best_result(metric="val_snr", mode="max")
-            
+            # Handle whether we get specific ResultGrid or ExperimentAnalysis
+            if hasattr(results, "get_best_result"):
+                best = results.get_best_result(metric="val_snr", mode="max")
+                best_config = best.config.get("train_loop_config", {})
+                best_metrics = best.metrics
+                
+                # Iterate results
+                results_list = [r for r in results]
+                
+            else:
+                # ExperimentAnalysis (legacy tune.run)
+                best_trial = results.get_best_trial(metric="val_snr", mode="max")
+                best_config = best_trial.config
+                best_metrics = best_trial.last_result
+                
+                # Iterate trials
+                results_list = results.trials
+
             # Log best hyperparameters with prefix
-            best_config = best.config.get("train_loop_config", {})
             mlflow.log_params({f"best_{k}": v for k, v in best_config.items() 
                              if not k.startswith("_") and k not in ["data_dir", "checkpoint_dir"]})
             
             # Log best metrics
             mlflow.log_metrics({
-                "best_val_snr": best.metrics.get("val_snr", 0),
-                "best_val_loss": best.metrics.get("val_loss", 0),
-                "best_train_loss": best.metrics.get("train_loss", 0),
-                "num_trials_completed": len(results),
+                "best_val_snr": best_metrics.get("val_snr", 0),
+                "best_val_loss": best_metrics.get("val_loss", 0),
+                "best_train_loss": best_metrics.get("train_loss", 0),
+                "num_trials_completed": len(results_list),
             })
             
             # Log all trial results as artifact
             trial_summaries = []
-            for i, result in enumerate(results):
+            for i, result in enumerate(results_list):
+                try:
+                    # Handle Result vs Trial
+                    if hasattr(result, "metrics"):
+                        metrics = result.metrics
+                        config = result.config
+                        trial_id = result.metrics.get("trial_id", f"trial_{i}")
+                    else:
+                        metrics = result.last_result
+                        config = result.config
+                        trial_id = result.trial_id
+                        
+                    trial_summaries.append({
+                        "trial_id": trial_id,
+                        "config": str(config),
+                        "val_snr": metrics.get("val_snr"),
+                        "val_loss": metrics.get("val_loss"),
+                        "status": metrics.get("status", "UNKNOWN"),
+                    })
+                except Exception:
+                    continue
                 trial_summaries.append({
                     "trial_id": i,
                     "val_snr": result.metrics.get("val_snr", 0),

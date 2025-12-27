@@ -71,6 +71,7 @@ docker run --gpus all -it --rm `
   -v ${PWD}/reports:/app/reports `
   -v ${PWD}/src:/app/src `
   -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
+  -e NOBANNER=1 `
   ecg-digitization:latest `
   python -m ecg_digitization.train_ray +mode=tune
 ```
@@ -124,6 +125,7 @@ docker run --gpus all -it --rm `
   -v ${PWD}/configs:/app/configs `
   -v ${PWD}/src:/app/src `
   -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
+  -e NOBANNER=1 `
   ecg-digitization:latest `
   python -m ecg_digitization.train approach=signalsavants `
     training.learning_rate=<best_lr> `
@@ -157,6 +159,7 @@ docker run --gpus all -it --rm `
   -v ${PWD}/configs:/app/configs `
   -v ${PWD}/src:/app/src `
   -e MLFLOW_TRACKING_URI=http://mlflow-server:5050 `
+  -e NOBANNER=1 `
   ecg-digitization:latest `
   python -m ecg_digitization.train_ray +mode=tune +resume=true
 ```

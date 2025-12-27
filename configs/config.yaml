@@ -4,6 +4,7 @@ defaults:
   - model: resnet50
   - data: default
   - training: default
+  - ray
   - _self_
 
 project:

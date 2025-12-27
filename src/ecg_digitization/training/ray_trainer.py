@@ -12,7 +12,9 @@ from ray.tune.schedulers import ASHAScheduler, PopulationBasedTraining
 from ray.tune.search.optuna import OptunaSearch
 from ray.train import ScalingConfig, RunConfig, CheckpointConfig
 from ray.train.torch import TorchTrainer
+from ray.air.integrations.mlflow import MLflowLoggerCallback, setup_mlflow
 import torch
+import tempfile
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 import logging
@@ -156,14 +158,14 @@ def train_func(config: Dict[str, Any]):
             )
             train.report(metrics, checkpoint=Checkpoint.from_directory(temp_dir))
 
-import tempfile
-
 
 def tune_trainable(config: Dict[str, Any]):
     """Trainable function for Ray Tune (single GPU per trial).
     
     This is a simplified version that doesn't use Ray Train's distributed APIs.
     """
+    # Initialize dataset and loader
+    data_dir = Path("/app/data") # Hardcoded for now, or match RayTrainer default
     from ecg_digitization.data import ECGImageDataset, get_train_transforms, get_val_transforms, collate_fn
     from ecg_digitization.models import ECGDigitizer
     from ecg_digitization.training import CombinedLoss
@@ -276,13 +278,25 @@ def tune_trainable(config: Dict[str, Any]):
         # Calculate SNR (negative loss is SNR)
         val_snr = -val_loss
         
-        # Report metrics to Ray Tune
-        tune.report({
-            "train_loss": train_loss,
-            "val_loss": val_loss,
-            "val_snr": val_snr,
-            "training_iteration": epoch + 1,
-        })
+        # Save checkpoint
+        with tempfile.TemporaryDirectory() as temp_dir:
+            checkpoint_path = os.path.join(temp_dir, "model.pt")
+            torch.save(
+                {"epoch": epoch, "model": model.state_dict(), "config": config},
+                checkpoint_path
+            )
+            
+            # Report metrics and checkpoint to Ray Tune
+            # MLflowLoggerCallback will pick this up if save_artifact=True
+            tune.report(
+                {
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                    "val_snr": val_snr,
+                    "training_iteration": epoch + 1,
+                },
+                checkpoint=tune.Checkpoint.from_directory(temp_dir)
+            )
 
 
 class RayTrainer:
@@ -383,28 +397,37 @@ class RayTrainer:
         )
         
         # Create tuner following the example pattern
-        tuner = tune.Tuner(
+        # Use legacy tune.run API for better compatibility with callbacks
+        analysis = tune.run(
             tune.with_resources(
                 tune_trainable,
                 resources={"cpu": 4, "gpu": 1}
             ),
-            tune_config=tune.TuneConfig(
-                metric="val_snr",
-                mode="max",
-                scheduler=scheduler,
-                num_samples=num_samples,
-            ),
-            param_space=search_space,
+            config=search_space,
+            metric="val_snr",
+            mode="max",
+            scheduler=scheduler,
+            num_samples=num_samples,
+            callbacks=[
+                MLflowLoggerCallback(
+                    experiment_name="ecg-digitization",
+                    save_artifact=True,
+                )
+            ],
+            keep_checkpoints_num=1,
+            checkpoint_score_attr="val_snr",
+            name="ecg_digitization_tune",
         )
         
-        results = tuner.fit()
-        
         # Get best result
-        best_result = results.get_best_result("val_snr", "max")
+        best_config = analysis.get_best_config("val_snr", "max")
+        best_trial = analysis.get_best_trial("val_snr", "max")
         
-        self.logger.info(f"Best trial config: {best_result.config}")
-        self.logger.info(f"Best trial final val_snr: {best_result.metrics['val_snr']}")
-        self.logger.info(f"Best trial final val_loss: {best_result.metrics['val_loss']}")
+        self.logger.info(f"Best trial config: {best_config}")
+        self.logger.info(f"Best trial final val_snr: {best_trial.last_result['val_snr']}")
+        self.logger.info(f"Best trial final val_loss: {best_trial.last_result['val_loss']}")
         
-        return results
+        # Return a structure compatible with what calling code expects (ResultGrid-like)
+        # Or just return analysis
+        return analysis
 

@@ -162,3 +162,10 @@ class ECGTrainer:
             best_path = self.checkpoint_dir / "best_model.pt"
             torch.save(state, best_path)
             self.logger.info(f"Saved best model: {best_path}")
+            
+            # Log best model artifact to MLflow immediately
+            if self.mlflow_tracker:
+                try:
+                    self.mlflow_tracker.log_artifact(str(best_path), "models")
+                except Exception as e:
+                    self.logger.warning(f"Failed to upload best model artifact: {e}")
